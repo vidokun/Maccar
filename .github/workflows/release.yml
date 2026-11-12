@@ -4,6 +4,9 @@ on:
   push:
     tags:
       - "v*"
+  # Dry run: builds and packages on a branch without publishing anything.
+  # Publishing steps are gated on `github.ref_type == 'tags'`.
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -11,7 +14,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
+  group: release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -109,6 +112,7 @@ jobs:
         run: ./scripts/generate_manifest.sh --out-copy build/pages/manifest.json
 
       - name: Publish release assets
+        if: ${{ github.ref_type == 'tags' }}
         uses: softprops/action-gh-release@v2
         with:
           files: |
@@ -126,6 +130,7 @@ jobs:
           cp build/manifest.json build/pages/site/manifest.json
 
       - name: Upload the Pages artifact
+        if: ${{ github.ref_type == 'tags' }}
         uses: actions/upload-pages-artifact@v3
         with:
           path: build/pages/site
@@ -133,6 +138,7 @@ jobs:
   deploy-pages:
     name: Deploy the landing page
     needs: build
+    if: ${{ github.ref_type == 'tags' }}
     runs-on: ubuntu-latest
     environment:
       name: github-pages
