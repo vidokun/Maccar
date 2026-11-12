@@ -17,6 +17,8 @@ All notable changes to **Maccar** are documented in this file.
 
 ### Fixed
 - Fixed the About window screenshot (and any PDF capture) truncating everything drawn after the app icon: `MaccarIconRenderer.renderAppIcon` called `restoreGState()` without a matching `saveGState()`, popping the enclosing recorder's state.
+- Fixed three "sending 'self' risks causing data races" build errors in `MenuBarController` that only appear on Swift 6.1.2 / Xcode 16.4: the background handoffs now keep `self` main-actor isolated (`Task { @MainActor }` outer) and move only `Sendable` payloads across isolation via a nested `Task.detached { }.value`, instead of capturing `self` inside `MainActor.run`.
+- Fixed the `Release` workflow failing at parse time with "workflow file issue" and zero jobs: `secrets` is not an allowed context in a step-level `if:`, so optional signing and notarization are now resolved by a `preflight` job into boolean outputs. The workflow also gained a `workflow_dispatch` dry run whose publishing, Pages upload, and deploy steps are gated on `github.ref_type == 'tags'`.
 
 ## [v1.2.1] - 2026-11-11 12:49 +0700
 ### Added
