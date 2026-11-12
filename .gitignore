@@ -5,6 +5,8 @@ DerivedData/
 build/
 dist/
 .omc/
-**/.claude/state/
+# Local agent scratch: plans, session state, and per-machine settings never
+# belong in a published repository.
+.claude/
 *.dmg
 *.zip
