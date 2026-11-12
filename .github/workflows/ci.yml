@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Build, test, and audit
+    runs-on: macos-15
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Show toolchain versions
+        run: |
+          swift --version
+          xcodebuild -version
+
+      - name: Verify shell script syntax
+        run: |
+          set -euo pipefail
+          for script in maccar.sh install.sh scripts/*.sh; do
+            bash -n "$script"
+            echo "syntax ok: $script"
+          done
+
+      - name: Run the Swift test suite
+        run: ./maccar.sh test
+
+      - name: Build the app bundle
+        run: ./scripts/package_app.sh
+
+      - name: Audit the landing page payload
+        run: |
+          set -euo pipefail
+          python3 -I -m json.tool docs/tokens.json > /dev/null
+          python3 -I -m json.tool docs/manifest.json > /dev/null 2>&1 || true
+          python3 -I - <<'PY'
+          import pathlib
+          import sys
+          import xml.etree.ElementTree as ElementTree
+
+          failures = []
+          index = pathlib.Path("docs/index.html")
+          if not index.is_file():
+              failures.append("docs/index.html is missing")
+          else:
+              html = index.read_text(encoding="utf-8")
+              if "<title>" not in html:
+                  failures.append("docs/index.html has no <title>")
+              for asset in ("assets/maccar-logo.png", "app.js", "styles.css"):
+                  if asset not in html:
+                      failures.append(f"docs/index.html does not reference {asset}")
+          for xml_file in ("docs/sitemap.xml",):
+              try:
+                  ElementTree.parse(xml_file)
+              except Exception as error:  # noqa: BLE001 - report and continue
+                  failures.append(f"{xml_file}: {error}")
+          if failures:
+              for failure in failures:
+                  print(f"FAIL {failure}")
+              sys.exit(1)
+          print("docs audit passed")
+          PY
+
+      - name: Verify generated manifest tooling
+        run: ./scripts/generate_manifest.sh --help > /dev/null

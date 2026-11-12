@@ -1,0 +1,114 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build, sign, and publish release assets
+    runs-on: macos-15
+    steps:
+      - name: Check out the tagged commit
+        uses: actions/checkout@v4
+
+      - name: Show toolchain versions
+        run: |
+          swift --version
+          xcodebuild -version
+
+      - name: Run the test suite
+        run: ./maccar.sh test
+
+      - name: Import the Developer ID certificate
+        if: ${{ secrets.MACCAR_SIGN_CERT_P12_BASE64 != '' }}
+        env:
+          CERT_P12_BASE64: ${{ secrets.MACCAR_SIGN_CERT_P12_BASE64 }}
+          CERT_PASSWORD: ${{ secrets.MACCAR_SIGN_CERT_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.MACCAR_KEYCHAIN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          KEYCHAIN_PATH="$RUNNER_TEMP/maccar-signing.keychain-db"
+          echo "$CERT_P12_BASE64" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security import "$RUNNER_TEMP/certificate.p12" -k "$KEYCHAIN_PATH" \
+            -P "$CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security list-keychain -d user -s "$KEYCHAIN_PATH" $(security list-keychain -d user | tr -d '"')
+          rm -f "$RUNNER_TEMP/certificate.p12"
+          echo "MACCAR_KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
+
+      - name: Store the notarization profile
+        if: ${{ secrets.MACCAR_NOTARY_APPLE_ID != '' }}
+        env:
+          APPLE_ID: ${{ secrets.MACCAR_NOTARY_APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.MACCAR_NOTARY_TEAM_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.MACCAR_NOTARY_APP_PASSWORD }}
+        run: |
+          set -euo pipefail
+          xcrun notarytool store-credentials maccar-notary \
+            --apple-id "$APPLE_ID" \
+            --team-id "$APPLE_TEAM_ID" \
+            --password "$APPLE_APP_PASSWORD" \
+            --keychain "${MACCAR_KEYCHAIN_PATH:-}"
+          echo "MACCAR_NOTARY_PROFILE=maccar-notary" >> "$GITHUB_ENV"
+
+      - name: Package the DMG and ZIP
+        env:
+          MACCAR_SIGN_IDENTITY: ${{ secrets.MACCAR_SIGN_IDENTITY || '-' }}
+          MACCAR_UPDATE_PUBLIC_KEY: ${{ vars.MACCAR_UPDATE_PUBLIC_KEY }}
+          MACCAR_UPDATE_KEY_ID: ${{ vars.MACCAR_UPDATE_KEY_ID }}
+        run: ./scripts/create_dmg.sh
+
+      - name: Generate the signed release manifest
+        env:
+          MACCAR_UPDATE_PRIVATE_KEY: ${{ secrets.MACCAR_UPDATE_PRIVATE_KEY }}
+          MACCAR_RELEASE_SUMMARY: ${{ github.event.repository.description }}
+        run: ./scripts/generate_manifest.sh --out-copy build/pages/manifest.json
+
+      - name: Publish release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            build/Maccar-*.dmg
+            build/Maccar-*.zip
+            build/SHA256SUMS.txt
+            build/manifest.json
+          generate_release_notes: true
+
+      - name: Stage the Pages payload
+        run: |
+          set -euo pipefail
+          mkdir -p build/pages/site
+          cp -R docs/. build/pages/site/
+          cp build/manifest.json build/pages/site/manifest.json
+
+      - name: Upload the Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/pages/site
+
+  deploy-pages:
+    name: Deploy the landing page
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

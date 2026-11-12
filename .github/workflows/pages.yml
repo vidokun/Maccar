@@ -1,0 +1,64 @@
+name: Pages
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "docs/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Publish the landing page
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Stage the docs directory
+        run: |
+          set -euo pipefail
+          rm -rf _site
+          mkdir -p _site
+          cp -R docs/. _site/
+
+      - name: Mirror the live release manifest when it is valid JSON
+        run: |
+          set -euo pipefail
+          TMP_MANIFEST="$(mktemp)"
+          trap 'rm -f "$TMP_MANIFEST"' EXIT
+          MANIFEST_URL="https://github.com/vidokun/Maccar/releases/latest/download/manifest.json"
+          if curl -fsSL --max-time 20 "$MANIFEST_URL" -o "$TMP_MANIFEST" \
+            && python3 -I -m json.tool "$TMP_MANIFEST" > /dev/null 2>&1; then
+            cp "$TMP_MANIFEST" _site/manifest.json
+            echo "Mirrored manifest.json into the Pages payload."
+          else
+            rm -f _site/manifest.json
+            echo "No usable manifest.json available; the landing page will use its GitHub API fallback."
+          fi
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload the Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

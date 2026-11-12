@@ -1,0 +1,10 @@
+.build/
+DerivedData/
+*.xcodeproj/xcuserdata/
+.DS_Store
+build/
+dist/
+.omc/
+**/.claude/state/
+*.dmg
+*.zip
