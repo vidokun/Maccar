@@ -144,18 +144,19 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
     private func refreshCachesInBackground() {
         guard !isPreview, !isCacheRefreshInFlight else { return }
         isCacheRefreshInFlight = true
-        Task.detached(priority: .utility) { [weak self] in
-            let snapshot = MenuBarResolutionSupport.fetchCacheSnapshot()
-            await MainActor.run {
-                guard let self else { return }
-                self.isCacheRefreshInFlight = false
-                let devicesChanged = snapshot.reachableDevices != self.cachedReachableDevices
-                let modesChanged = snapshot.availableModes != self.cachedAvailableModes
-                guard devicesChanged || modesChanged else { return }
-                if devicesChanged { self.cachedReachableDevices = snapshot.reachableDevices }
-                if modesChanged { self.cachedAvailableModes = snapshot.availableModes }
-                self.rebuildMenuSafely()
-            }
+        // Only the Sendable snapshot crosses isolation; `self` stays main-actor isolated.
+        Task { @MainActor [weak self] in
+            let snapshot = await Task.detached(priority: .utility) {
+                MenuBarResolutionSupport.fetchCacheSnapshot()
+            }.value
+            guard let self else { return }
+            self.isCacheRefreshInFlight = false
+            let devicesChanged = snapshot.reachableDevices != self.cachedReachableDevices
+            let modesChanged = snapshot.availableModes != self.cachedAvailableModes
+            guard devicesChanged || modesChanged else { return }
+            if devicesChanged { self.cachedReachableDevices = snapshot.reachableDevices }
+            if modesChanged { self.cachedAvailableModes = snapshot.availableModes }
+            self.rebuildMenuSafely()
         }
     }
 
@@ -300,22 +301,22 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
         updateTitle(for: status)
         setupMenu()
 
-        Task.detached(priority: .userInitiated) { [weak self] in
-            let errorMessage: String?
-            do {
-                try DeviceWatcher.shared.disconnectManually(deviceName: targetName)
-                errorMessage = nil
-            } catch {
-                MaccarLogger.shared.error("MenuBar", "Failed to disconnect '\(targetName)': \(error.localizedDescription)")
-                errorMessage = error.localizedDescription
-            }
-            await MainActor.run {
-                guard let self else { return }
-                self.isDisconnectInFlight = false
-                self.updateTitle(for: DeviceWatcher.shared.status)
-                self.rebuildMenuSafely()
-                if let errorMessage { self.showAlert(title: "Failed to Disconnect", message: errorMessage) }
-            }
+        // Only the Sendable error text crosses isolation; `self` stays main-actor isolated.
+        Task { @MainActor [weak self] in
+            let errorMessage = await Task.detached(priority: .userInitiated) { () -> String? in
+                do {
+                    try DeviceWatcher.shared.disconnectManually(deviceName: targetName)
+                    return nil
+                } catch {
+                    MaccarLogger.shared.error("MenuBar", "Failed to disconnect '\(targetName)': \(error.localizedDescription)")
+                    return error.localizedDescription
+                }
+            }.value
+            guard let self else { return }
+            self.isDisconnectInFlight = false
+            self.updateTitle(for: DeviceWatcher.shared.status)
+            self.rebuildMenuSafely()
+            if let errorMessage { self.showAlert(title: "Failed to Disconnect", message: errorMessage) }
         }
     }
 
@@ -326,16 +327,17 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
         updateTitle(for: DeviceWatcher.shared.status)
         setupMenu()
 
-        Task.detached(priority: .userInitiated) { [weak self] in
-            let outcome = MenuBarResolutionSupport.executeResolutionSwitch(resKey: resKey, previousKey: previousKey)
-            await MainActor.run {
-                guard let self else { return }
-                self.isResolutionSwitchInFlight = false
-                self.cachedAvailableModes = outcome.availableModes
-                self.updateTitle(for: DeviceWatcher.shared.status)
-                self.rebuildMenuSafely()
-                if let errorMessage = outcome.errorMessage { self.showAlert(title: "Failed to Switch Display Resolution", message: errorMessage) }
-            }
+        // Only the Sendable outcome crosses isolation; `self` stays main-actor isolated.
+        Task { @MainActor [weak self] in
+            let outcome = await Task.detached(priority: .userInitiated) {
+                MenuBarResolutionSupport.executeResolutionSwitch(resKey: resKey, previousKey: previousKey)
+            }.value
+            guard let self else { return }
+            self.isResolutionSwitchInFlight = false
+            self.cachedAvailableModes = outcome.availableModes
+            self.updateTitle(for: DeviceWatcher.shared.status)
+            self.rebuildMenuSafely()
+            if let errorMessage = outcome.errorMessage { self.showAlert(title: "Failed to Switch Display Resolution", message: errorMessage) }
         }
     }
 
