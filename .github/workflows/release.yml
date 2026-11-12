@@ -15,8 +15,37 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  preflight:
+    name: Detect optional signing credentials
+    runs-on: ubuntu-latest
+    # `secrets` is not an allowed context in a step-level `if:` expression, so the
+    # optional-signing gates are resolved here into job outputs and tested against
+    # those. Unset secrets arrive as an empty string, which keeps the gates closed.
+    outputs:
+      has_signing_cert: ${{ steps.detect.outputs.has_signing_cert }}
+      has_notarization: ${{ steps.detect.outputs.has_notarization }}
+    steps:
+      - name: Detect configured secrets
+        id: detect
+        env:
+          SIGN_CERT: ${{ secrets.MACCAR_SIGN_CERT_P12_BASE64 }}
+          NOTARY_APPLE_ID: ${{ secrets.MACCAR_NOTARY_APPLE_ID }}
+        run: |
+          set -euo pipefail
+          gate() {
+            local name="$1" value="$2"
+            if [ -n "$value" ]; then
+              echo "${name}=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "${name}=false" >> "$GITHUB_OUTPUT"
+            fi
+          }
+          gate has_signing_cert "$SIGN_CERT"
+          gate has_notarization "$NOTARY_APPLE_ID"
+
   build:
     name: Build, sign, and publish release assets
+    needs: preflight
     runs-on: macos-15
     steps:
       - name: Check out the tagged commit
@@ -31,7 +60,7 @@ jobs:
         run: ./maccar.sh test
 
       - name: Import the Developer ID certificate
-        if: ${{ secrets.MACCAR_SIGN_CERT_P12_BASE64 != '' }}
+        if: ${{ needs.preflight.outputs.has_signing_cert == 'true' }}
         env:
           CERT_P12_BASE64: ${{ secrets.MACCAR_SIGN_CERT_P12_BASE64 }}
           CERT_PASSWORD: ${{ secrets.MACCAR_SIGN_CERT_PASSWORD }}
@@ -52,7 +81,7 @@ jobs:
           echo "MACCAR_KEYCHAIN_PATH=$KEYCHAIN_PATH" >> "$GITHUB_ENV"
 
       - name: Store the notarization profile
-        if: ${{ secrets.MACCAR_NOTARY_APPLE_ID != '' }}
+        if: ${{ needs.preflight.outputs.has_notarization == 'true' }}
         env:
           APPLE_ID: ${{ secrets.MACCAR_NOTARY_APPLE_ID }}
           APPLE_TEAM_ID: ${{ secrets.MACCAR_NOTARY_TEAM_ID }}
