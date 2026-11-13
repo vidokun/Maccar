@@ -307,7 +307,7 @@ public final class AboutWindowController: NSObject {
         content.addSubview(iconView)
 
         content.addSubview(makeCenteredLabel("Maccar", y: 96, height: 28, font: .boldSystemFont(ofSize: 22), color: .labelColor))
-        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.3.0"
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.4.0"
         content.addSubview(makeCenteredLabel("Version \(version) · Apple Silicon Native", y: 126, height: 16, font: .systemFont(ofSize: 11), color: .secondaryLabelColor))
         content.addSubview(makeCenteredLabel("Headless Virtual Display & Sidecar Manager", y: 146, height: 18, font: .systemFont(ofSize: 12, weight: .medium), color: .labelColor))
 

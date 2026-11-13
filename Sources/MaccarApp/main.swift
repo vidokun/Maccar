@@ -2,7 +2,7 @@ import Foundation
 import AppKit
 import MaccarKit
 
-private let defaultAppVersion = "1.3.0"
+private let defaultAppVersion = "1.4.0"
 
 func printUsage() {
     print("""

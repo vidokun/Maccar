@@ -227,13 +227,13 @@ enum ScreenshotExporter {
     private static func sampleLogEntries() -> [LogEntry] {
         let base = Date(timeIntervalSince1970: 1_763_000_000)
         return [
-            ("App", "Maccar v1.3.0 Menu Bar application starting.", LogLevel.info),
+            ("App", "Maccar v1.4.0 Menu Bar application starting.", LogLevel.info),
             ("Display", "Headless virtual display active: ID 42 (iPad Mini Comfortable).", .info),
             ("Sidecar", "Sidecar session established with 'VPad' over USB.", .info),
             ("Mirror", "Mirroring enabled to virtual display 42.", .info),
             ("DeviceWatcher", "USB attach burst debounced; single reconnect scheduled.", .warning),
             ("HotKey", "Registered global shortcut for Reconnect.", .info),
-            ("Updater", "Update check complete: v1.3.0 is the latest release.", .info),
+            ("Updater", "Update check complete: v1.4.0 is the latest release.", .info),
         ].enumerated().map { offset, sample in
             LogEntry(
                 timestamp: base.addingTimeInterval(Double(offset) * 3),

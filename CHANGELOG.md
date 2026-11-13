@@ -2,6 +2,25 @@
 
 All notable changes to **Maccar** are documented in this file.
 
+## [v1.4.0] - 2026-11-13 12:44 +0700
+### Added
+- `SingleInstanceGuard` (`Sources/MaccarKit/SingleInstanceGuard.swift`): a per-user `flock` that lets exactly one Maccar process own the `DeviceWatcher`. Two live instances each called `SidecarCoreConnectDevice` independently, producing `-100` session rejections and one stacked system alert per failed call. A second launch now activates the running copy and exits instead of competing for the same Sidecar session. The guard is scoped to the app and daemon run paths only, so the test runner and read-only CLI subcommands are unaffected.
+
+### Changed
+- **Strict zero-popup retry policy.** A single failed `connect()` now latches the auto-connect gate shut. `SidecarDisplayAgent` raises a popup on *every* failed connect, so retrying an unconnectable device could only add popups. Only a physical USB replug or an explicit manual reconnect (Menu Bar or `⌃⌥⌘R`) re-arms it. The `20s -> 60s -> 180s -> pause` escalation ladder is gone; `DeviceWatcherBackoff.escalatingSchedule` and `shouldSuppressPassiveAdoption` were removed with it, and presence polling is a flat 5 s.
+- **`Launch at Login` is split into two pieces of state.** `maccar_start_at_login_intent` records what the user asked for; `maccar_start_at_login` mirrors what macOS actually granted. The intent key is deliberately excluded from `register(defaults:)` and read only through `object(forKey:)`, so an absent key stays distinguishable from an explicit opt-out. v1.3.0-era keys are migrated once on launch.
+- **The Menu Bar checkbox renders intent, not the grant.** While approval is pending macOS reports `.requiresApproval` but the user has already said yes; rendering that as unchecked invited a second press that registered again instead of switching the feature off. The item title now carries the approval guidance instead.
+- **`README.md` documents exactly two install paths** — the `install.sh` one-liner and the DMG — in both languages. Build-from-source is no longer a published path. The CLI reference now points at the installed binary (`/Applications/Maccar.app/Contents/MacOS/maccar`); `maccar.sh` stays in the repo for development.
+
+### Fixed
+- **`Launch at Login` now survives a reboot.** Three stacked defects conspired: `register(defaults:)` made an absent opt-in key read as `false`, the getter contradicted the setter by reporting the macOS grant rather than the stored choice, and so `syncLoginItemOnLaunch()` returned on its first guard every launch — `register()` was never called, even though the log reported the opt-in was set.
+- Scheduled launch reconciliation no longer registers a *second* time when macOS already reports the item as registered or awaiting approval; it records what macOS holds and stops.
+- The approval alert no longer fires when the user is switching `Launch at Login` **off**: macOS can report `.requiresApproval` for a moment after `unregister()`, which previously produced an alert telling someone to go and enable the feature they had just disabled.
+- A manual reconnect pressed while the watcher was busy was silently dropped. The press is now held as deferred intent and served the moment the work slot frees; every path that abandons the press also clears the dedupe guard so it cannot latch and coalesce all future presses.
+- `scripts/package_app.sh` aborts **before touching the bundle** when `MACCAR_SIGN_IDENTITY` is set but absent from the keychain, instead of quietly falling back to an ad-hoc signature. After signing it also asserts the designated requirement is rooted in an Apple-issued certificate rather than a `cdhash`, which would invalidate login items on every rebuild.
+- `install.sh` reports the post-install Gatekeeper assessment and its `source=` line, and names the right-click → Open fallback only when the build is not accepted. It deliberately does not fail: `spctl` also rejects a legitimate unnotarized Developer ID build.
+- Fixed a flaky failure in the `DeviceWatcher` observer-token race test on slow CI runners.
+
 ## [v1.3.0] - 2026-11-12 14:05 +0700
 ### Added
 - First public open-source release under **GPL-3.0**, with a bilingual (English primary, Indonesian secondary) README and an SEO-tuned landing page in `docs/` targeted at "Headless Sidecar" / "Sidecar tanpa monitor".
