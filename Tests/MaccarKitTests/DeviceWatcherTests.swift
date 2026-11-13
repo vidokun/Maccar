@@ -343,4 +343,67 @@ struct DeviceWatcherTests {
         #expect(harness.mirror.autoMatchAndMirrorCalls.isEmpty)
         #expect(harness.virtualDisplay.destroyCalls == 0)
     }
+
+    @Test("A reconnect press while one is already pending still clears the manual hold")
+    func reconnectPressWhilePendingClearsManualHold() {
+        let harness = makeHarness(dispatchesReconnectTicks: true)
+        harness.watcher.stateLock.withLock { $0.isReconnectPending = true }
+        harness.watcher.setManualDisconnectHold(true)
+        #expect(harness.watcher.isManualDisconnectHold)
+
+        harness.watcher.reconnectNow()
+
+        // A press is a fresh instruction from the user. Returning early on the
+        // dedupe guard skips the hold/toggle reset, so the press is silently lost
+        // and the UI keeps showing "Disconnected" even though the user just asked
+        // to reconnect.
+        #expect(!harness.watcher.isManualDisconnectHold)
+    }
+
+    @Test("A manual reconnect that loses the work slot still runs once the slot is released")
+    func manualReconnectDeferredWhileWorkSlotIsBusy() {
+        let harness = makeHarness(dispatchesReconnectTicks: true)
+        harness.sidecar.reachableDevicesResult = .success(["VPad"])
+
+        // Another attempt — an auto tick — currently owns the single work slot.
+        harness.watcher.stateLock.withLock { $0.isWorking = true }
+
+        harness.watcher.reconnectNow()
+        harness.watcher.flushQueueForTesting()
+        #expect(harness.sidecar.connectCalls.isEmpty)
+
+        // The intent must survive the failed slot acquisition; dropping it here is
+        // the bug behind "Reconnect Now does nothing until the cooldown expires".
+        #expect(harness.watcher.stateLock.withLock { $0.pendingManualReconnect })
+
+        harness.watcher.releaseWorkSlotForTesting()
+        harness.watcher.flushQueueForTesting()
+        #expect(harness.sidecar.connectCalls.count == 1)
+    }
+
+    @Test("A deferred reconnect that is dropped must not leave the dedupe guard stuck on")
+    func deferredReconnectDroppedClearsReconnectPending() {
+        let harness = makeHarness(dispatchesReconnectTicks: true)
+        harness.sidecar.reachableDevicesResult = .success(["VPad"])
+
+        // An auto tick owns the slot, so the press defers.
+        harness.watcher.stateLock.withLock { $0.isWorking = true }
+        harness.watcher.reconnectNow()
+        harness.watcher.flushQueueForTesting()
+
+        // Before the owner releases, the user disconnects: the deferred press must
+        // then be dropped. Dropping it must still clear isReconnectPending, otherwise
+        // every later reconnectNow() is coalesced forever and Reconnect Now dies.
+        harness.watcher.setManualDisconnectHold(true)
+        harness.watcher.releaseWorkSlotForTesting()
+        harness.watcher.flushQueueForTesting()
+
+        #expect(!harness.watcher.stateLock.withLock { $0.isReconnectPending })
+
+        // The guard must still admit a new press afterwards.
+        harness.watcher.setManualDisconnectHold(false)
+        harness.watcher.reconnectNow()
+        harness.watcher.flushQueueForTesting()
+        #expect(harness.sidecar.connectCalls.count == 1)
+    }
 }

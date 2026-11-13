@@ -5,15 +5,51 @@ import os
 extension DeviceWatcher {
     internal func performForceReconnect() {
         guard acquireWorkSlot(respectReconfig: false) else {
-            stateLock.withLock { $0.isReconnectPending = false }
+            // A manual press must not evaporate because an auto-connect tick happened
+            // to own the slot. Record the intent; the slot owner serves it on release.
+            // `isReconnectPending` stays set deliberately: the intent is still live and
+            // the serving attempt will clear it through its own defer.
+            stateLock.withLock { $0.pendingManualReconnect = true }
+            MaccarLogger.shared.info("DeviceWatcher", "Reconnect deferred: another attempt holds the work slot; will run on release.")
             return
         }
         defer {
-            stateLock.withLock {
-                $0.isWorking = false
-                $0.isReconnectPending = false
-            }
+            stateLock.withLock { $0.isReconnectPending = false }
+            releaseWorkSlot()
         }
+        runReconnectAttempt()
+    }
+
+    /// Frees the single work slot and serves any reconnect that was deferred
+    /// while it was held. Every slot owner must release through here, otherwise a
+    /// manual press recorded mid-attempt waits for an unrelated event.
+    internal func releaseWorkSlot() {
+        stateLock.withLock { $0.isWorking = false }
+        serveDeferredReconnectIfNeeded()
+    }
+
+    /// Serves a manual reconnect recorded while the work slot was busy.
+    private func serveDeferredReconnectIfNeeded() {
+        let deferred = stateLock.withLock { state -> Bool in
+            guard state.pendingManualReconnect, !state.isStopped, !state.isManualDisconnectHold else {
+                // The deferred press is being abandoned. `isReconnectPending` was set by
+                // `reconnectNow()` and is normally cleared by the serving attempt's defer,
+                // so clearing it here is what keeps the dedupe guard from latching on and
+                // coalescing every later press forever.
+                if state.pendingManualReconnect { state.isReconnectPending = false }
+                state.pendingManualReconnect = false
+                return false
+            }
+            state.pendingManualReconnect = false
+            return true
+        }
+        guard deferred else { return }
+        MaccarLogger.shared.info("DeviceWatcher", "Running reconnect that was deferred while the work slot was busy.")
+        workQueue.async { [weak self] in self?.performForceReconnect() }
+    }
+
+    /// The reconnect attempt itself. The caller must already hold the work slot.
+    internal func runReconnectAttempt() {
 
         let snapshot = stateLock.withLock { state -> (wasConnected: Bool, generation: UInt64, shouldAbort: Bool) in
             guard !state.isManualDisconnectHold, !state.isStopped else {

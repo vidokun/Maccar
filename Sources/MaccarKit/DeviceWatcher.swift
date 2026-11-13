@@ -28,6 +28,10 @@ public final class DeviceWatcher: @unchecked Sendable {
         var consecutiveDetachMisses: Int = 0
         var lastGhostWarningTime: Date = .distantPast
         var isReconnectPending: Bool = false
+        /// Set when a manual reconnect could not take the work slot. Unlike
+        /// `isReconnectPending` (which only dedupes the in-flight dispatch), this
+        /// records user intent that must survive until it is actually served.
+        var pendingManualReconnect: Bool = false
         var reconnectGeneration: UInt64 = 0
         var isWorking: Bool = false
         var cachedReachableDevices: [String] = []
@@ -51,6 +55,10 @@ public final class DeviceWatcher: @unchecked Sendable {
     private let queue = DispatchQueue(label: "com.maccar.devicewatcher", qos: .utility)
     private var timer: DispatchSourceTimer?
     private var observer: DeviceWatcherObserver?
+
+    /// Serial queue that owns every work-slot transition. Extensions enqueue onto
+    /// it so a deferred reconnect resumes on the same serial context as a tick.
+    internal var workQueue: DispatchQueue { queue }
 
     public var status: DeviceWatcherStatus { stateLock.withLock { $0.status } }
     public var cachedReachableDevices: [String] { stateLock.withLock { $0.cachedReachableDevices } }
@@ -113,6 +121,7 @@ public final class DeviceWatcher: @unchecked Sendable {
 
     internal func performTickForTesting() { tick() }
     internal func flushQueueForTesting() { queue.sync {} }
+    internal func releaseWorkSlotForTesting() { releaseWorkSlot() }
     public func forceConnect() { reconnectNow() }
 
     public func start() {
@@ -209,17 +218,21 @@ public final class DeviceWatcher: @unchecked Sendable {
 
     public func reconnectNow() {
         let shouldDispatch = stateLock.withLock { state -> Bool in
-            if dispatchesReconnectTicks {
-                guard !state.isReconnectPending else { return false }
-                state.isReconnectPending = true; state.reconnectGeneration &+= 1
-            }
+            // The user's intent is applied unconditionally: a press is a fresh
+            // instruction, so it must clear the hold and reset the retry gate even
+            // when a previous reconnect is still in flight. Only the *dispatch* is
+            // deduplicated, otherwise a press lands as a no-op and the menu keeps
+            // showing "Disconnected" after the user asked to reconnect.
             state.isManualDisconnectHold = false; state.manualReconnectRequested = true
             state.lastManualDisconnectTime = .distantPast; state.consecutiveDetachMisses = 0
             state.backoff.resetForReconnect()
+            guard dispatchesReconnectTicks else { return true }
+            guard !state.isReconnectPending else { return false }
+            state.isReconnectPending = true; state.reconnectGeneration &+= 1
             return true
         }
-        guard shouldDispatch else {
-            MaccarLogger.shared.debug("DeviceWatcher", "Coalesced duplicate reconnect request while reconnect is pending."); return
+        if !shouldDispatch {
+            MaccarLogger.shared.debug("DeviceWatcher", "Coalesced duplicate reconnect request while reconnect is pending; intent recorded."); return
         }
         MaccarLogger.shared.info("DeviceWatcher", "Explicit reconnect requested; resuming connection for registered iPad.")
         if dispatchesReconnectTicks { queue.async { [weak self] in self?.performForceReconnect() } }
@@ -329,7 +342,7 @@ public final class DeviceWatcher: @unchecked Sendable {
 
     private func tick() {
         guard acquireWorkSlot(respectReconfig: true) else { return }
-        defer { stateLock.withLock { $0.isWorking = false } }
+        defer { releaseWorkSlot() }
 
         guard let target = resolvedTargetName() else {
             _ = fetchAndCacheReachableDevices(); updateStatus(.waitingForDevice(targetName: nil)); return
