@@ -396,7 +396,7 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
             "MenuBar",
             "Launch at Login intent set to \(settings.startAtLoginIntent) (macOS reports \(settings.loginItemStatus.rawValue))."
         )
-        if settings.loginItemStatus == .requiresApproval {
+        if settings.shouldPromptForApproval {
             showAlert(
                 title: "Approve Launch at Login",
                 message: "macOS needs your approval. Open System Settings > General > Login Items and enable Maccar."

@@ -320,6 +320,29 @@ struct SettingsTests {
         }
     }
 
+    @Test("The approval prompt fires only while the user is asking for the feature")
+    func approvalPromptRequiresIntent() throws {
+        try withIsolatedDefaults { defaults in
+            let manager = MockLoginItemManager(status: .notRegistered, statusAfterRegister: .requiresApproval)
+            let settings = MaccarSettings(defaults: defaults, isAppBundle: true, loginItemManager: manager)
+
+            settings.startAtLogin = true
+            #expect(settings.shouldPromptForApproval == true)
+
+            // Turning the feature off must not tell the user to go and enable it. The status
+            // can still read `.requiresApproval` for a moment after unregistering, so the
+            // prompt has to be gated on intent, not on status alone.
+            settings.startAtLogin = false
+            #expect(settings.shouldPromptForApproval == false)
+
+            // A CLI process has no login item and must never raise this prompt.
+            let cli = MaccarSettings(
+                defaults: defaults, isAppBundle: false, loginItemManager: MockLoginItemManager(status: .requiresApproval)
+            )
+            #expect(cli.shouldPromptForApproval == false)
+        }
+    }
+
     @Test("Register and unregister failures record error, log warning, and sync defaults to actual status")
     func registerAndUnregisterErrorsAreCaughtLoggedAndSynced() throws {
         try withIsolatedDefaults { defaults in

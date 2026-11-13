@@ -167,6 +167,15 @@ public final class MaccarSettings: @unchecked Sendable {
         )
     }
 
+    /// Whether the menu should tell the user to approve the login item in System Settings.
+    ///
+    /// Gated on intent as well as status: immediately after the user switches the feature *off*,
+    /// macOS can still report `.requiresApproval`, and prompting then would instruct someone to
+    /// enable a feature they just disabled.
+    public var shouldPromptForApproval: Bool {
+        isAppBundle && startAtLoginIntent && loginItemManager.status == .requiresApproval
+    }
+
     public var preferredResolution: String {
         get { defaults.string(forKey: Key.preferredResolution) ?? "auto" }
         set { defaults.set(newValue, forKey: Key.preferredResolution) }
