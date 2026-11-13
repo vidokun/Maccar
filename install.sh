@@ -224,11 +224,11 @@ done
 if [ -n "$REQUESTED_VERSION" ]; then
     case "$REQUESTED_VERSION" in
         *[!0-9.v]*)
-            die "Invalid --version '$REQUESTED_VERSION'. Expected semantic version like 1.3.0 or v1.3.0."
+            die "Invalid --version '$REQUESTED_VERSION'. Expected semantic version like 1.4.0 or v1.4.0."
             ;;
     esac
     if ! printf '%s\n' "$REQUESTED_VERSION" | grep -Eq '^v?[0-9]+\.[0-9]+\.[0-9]+$'; then
-        die "Invalid --version '$REQUESTED_VERSION'. Expected semantic version like 1.3.0 or v1.3.0."
+        die "Invalid --version '$REQUESTED_VERSION'. Expected semantic version like 1.4.0 or v1.4.0."
     fi
     CLEAN_VERSION="${REQUESTED_VERSION#v}"
 fi
