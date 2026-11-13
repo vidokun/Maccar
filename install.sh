@@ -379,6 +379,19 @@ rm -rf "$TARGET_APP"
 ditto "$STAGED_APP" "$TARGET_APP"
 codesign --verify --deep --strict "$TARGET_APP" >/dev/null 2>&1 || die "Code signature verification failed after installation to $TARGET_APP"
 
+# Signature validity and Gatekeeper acceptance are different questions: a self-signed or ad-hoc
+# bundle verifies fine yet still gets blocked on first launch. Report what macOS actually says,
+# but do not fail — an ad-hoc build is legitimate for a local install, and `spctl` also reports
+# "rejected" for a perfectly good unnotarized Developer ID build.
+GATEKEEPER_VERDICT="$(spctl --assess --type execute -vv "$TARGET_APP" 2>&1 || true)"
+GATEKEEPER_SOURCE="$(printf '%s\n' "$GATEKEEPER_VERDICT" | sed -n 's/^source=//p' | head -1)"
+if printf '%s\n' "$GATEKEEPER_VERDICT" | grep -q ': accepted'; then
+    printf '    Gatekeeper: accepted%s\n' "${GATEKEEPER_SOURCE:+ ($GATEKEEPER_SOURCE)}"
+else
+    printf '    Gatekeeper: not accepted%s\n' "${GATEKEEPER_SOURCE:+ ($GATEKEEPER_SOURCE)}"
+    printf '    This build is not notarized. First launch may need right-click -> Open.\n'
+fi
+
 if [ "$PREFIX" = "/Applications" ]; then
     printf '✓ Maccar v%s installed. Launch via Spotlight or: open -a Maccar\n' "$MANIFEST_VERSION"
 else

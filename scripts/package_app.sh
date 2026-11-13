@@ -56,6 +56,22 @@ fi
 
 SIGN_IDENTITY="${MACCAR_SIGN_IDENTITY:--}"
 
+# A requested identity that is not in the keychain must be fatal, not a quiet downgrade.
+# `codesign -s <missing>` already fails, but relying on that leaves the failure one step away
+# from a build that silently ships ad-hoc: Gatekeeper then rejects the DMG on first launch and
+# the bundle gets a cdhash designated requirement, which invalidates login items on every
+# rebuild. D5 exists to remove exactly that class of surprise, so the check runs before the
+# bundle is touched and names the recovery command.
+if [ "$SIGN_IDENTITY" != "-" ]; then
+    if ! security find-identity -v -p codesigning 2>/dev/null | grep -qF -- "$SIGN_IDENTITY"; then
+        echo "Error: MACCAR_SIGN_IDENTITY was set, but no matching codesigning identity is in the keychain." >&2
+        echo "       Requested: $SIGN_IDENTITY" >&2
+        echo "       Available: security find-identity -v -p codesigning" >&2
+        echo "       Refusing to fall back to ad-hoc signing." >&2
+        exit 1
+    fi
+fi
+
 echo "==> [3/4] Code signing..."
 # Strip Finder/quarantine extended attributes so notarization will not reject the bundle
 xattr -cr "$APP_DIR" 2>/dev/null || true
@@ -67,6 +83,24 @@ else
     codesign --force --options runtime --timestamp -s "$SIGN_IDENTITY" "$APP_DIR"
 fi
 codesign --verify --deep --strict --verbose=2 "$APP_DIR"
+
+# An identity-based requirement is what makes a login item, a TCC grant or a Sidecar
+# authorisation survive the next update. A `cdhash` requirement is keyed to one exact build,
+# so every rebuild silently revokes them — the second half of what made D4 feel unfixable.
+if [ "$SIGN_IDENTITY" != "-" ]; then
+    DESIGNATED_REQUIREMENT="$(codesign -d -r- "$APP_DIR" 2>&1 || true)"
+    if printf '%s' "$DESIGNATED_REQUIREMENT" | grep -q 'cdhash'; then
+        echo "Error: the bundle still has a cdhash designated requirement after signing." >&2
+        echo "       $DESIGNATED_REQUIREMENT" >&2
+        echo "       Login items and TCC grants would not survive the next rebuild." >&2
+        exit 1
+    fi
+    if ! printf '%s' "$DESIGNATED_REQUIREMENT" | grep -q 'anchor apple generic'; then
+        echo "Error: the designated requirement is not rooted in an Apple-issued certificate." >&2
+        echo "       $DESIGNATED_REQUIREMENT" >&2
+        exit 1
+    fi
+fi
 
 echo "==> [4/4] Maccar.app bundle created successfully at:"
 echo "    $APP_DIR"
