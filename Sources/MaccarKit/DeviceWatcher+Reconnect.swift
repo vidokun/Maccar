@@ -67,6 +67,24 @@ extension DeviceWatcher {
             updateStatus(.waitingForDevice(targetName: nil))
             return
         }
+        // Reachability is checked on the manual path too, not just the auto path. Issuing
+        // connect() for an absent device is precisely what makes SidecarDisplayAgent raise
+        // "Unable to Connect to …", and DD-6 promises zero popups — including when the user
+        // presses Reconnect Now with the cable out.
+        let reachable: [String]
+        do {
+            reachable = try sidecar.reachableDevices()
+            cacheReachableDevices(reachable)
+        } catch {
+            MaccarLogger.shared.warning("DeviceWatcher", "Reconnect aborted; could not list Sidecar devices: \(error.localizedDescription)")
+            reportSkippedReconnect(target: target)
+            return
+        }
+        guard reachable.contains(where: { $0.caseInsensitiveCompare(target) == .orderedSame }) else {
+            MaccarLogger.shared.info("DeviceWatcher", "Reconnect skipped: '\(target)' is not currently reachable.")
+            reportSkippedReconnect(target: target)
+            return
+        }
         updateStatus(.connecting(targetName: target))
         teardownSessionBeforeReconnect(
             target: target,
@@ -79,6 +97,18 @@ extension DeviceWatcher {
             autoMirror: settings.autoMirror,
             capturedGeneration: snapshot.generation
         )
+    }
+
+    /// Reports the state left by a reconnect that was skipped because the target was absent.
+    /// A live session wins: the iPad can drop out of Sidecar's *reachable* list while
+    /// connected (asleep), and claiming "waiting for device" would be a lie the menu shows.
+    private func reportSkippedReconnect(target: String) {
+        guard sidecar.isDeviceConnected(deviceName: target) else {
+            updateStatus(.waitingForDevice(targetName: target))
+            return
+        }
+        let (mirrored, ipadDisplayID) = syncMirrorIfNeeded(autoMirror: settings.autoMirror)
+        updateStatus(.connected(deviceName: target, displayID: ipadDisplayID, mirrored: mirrored))
     }
 
     internal func settleAfterDisconnect(duration: TimeInterval, step: TimeInterval, capturedGeneration: UInt64) {

@@ -122,6 +122,7 @@ public final class DeviceWatcher: @unchecked Sendable {
     internal func performTickForTesting() { tick() }
     internal func flushQueueForTesting() { queue.sync {} }
     internal func releaseWorkSlotForTesting() { releaseWorkSlot() }
+    internal var isAutoRetryPausedForTesting: Bool { stateLock.withLock { $0.backoff.isAutoRetryPaused } }
     public func forceConnect() { reconnectNow() }
 
     public func start() {
@@ -216,6 +217,10 @@ public final class DeviceWatcher: @unchecked Sendable {
         }
     }
 
+    /// A manual press re-arms the strict zero-popup gate (DD-6). Without this the press
+    /// would be swallowed by `tick()`'s `isAutoRetryPaused` branch before it could ever
+    /// reach `consumeAutoConnectGate`, which is exactly the "Reconnect Now does nothing"
+    /// symptom. `resetForReconnect()` clears the latch.
     public func reconnectNow() {
         let shouldDispatch = stateLock.withLock { state -> Bool in
             // The user's intent is applied unconditionally: a press is a fresh
@@ -322,7 +327,7 @@ public final class DeviceWatcher: @unchecked Sendable {
         return reachable
     }
 
-    private func cacheReachableDevices(_ devices: [String]) {
+    internal func cacheReachableDevices(_ devices: [String]) {
         let callback = stateLock.withLock { state -> (@Sendable ([String]) -> Void)? in
             guard state.cachedReachableDevices != devices else { return nil }
             state.cachedReachableDevices = devices
@@ -411,20 +416,13 @@ public final class DeviceWatcher: @unchecked Sendable {
     }
 
     private func handleConnectedTick(for target: String) {
-        let currentTime = now()
-        let adopted = stateLock.withLock { state -> Bool in
-            if state.backoff.shouldSuppressPassiveAdoption(manualReconnectRequested: state.manualReconnectRequested, at: currentTime) {
-                return false
-            }
+        // Adopting a session that already exists issues no `connect()`, so it cannot raise a
+        // popup and DD-6's gate has nothing to suppress. The old post-failure suppression
+        // window is gone: with a sticky latch it would disconnect the user's Control Center
+        // session on every tick, forever.
+        stateLock.withLock { state in
             state.isManualDisconnectHold = false; state.manualReconnectRequested = false
             state.consecutiveDetachMisses = 0; state.backoff.resetForConnected()
-            return true
-        }
-        guard adopted else {
-            MaccarLogger.shared.warning("DeviceWatcher", "Suppressing passive adoption of '\(target)' during post-failure backoff.")
-            try? sidecar.disconnect(deviceName: target, ignoreNotConnected: true)
-            updateStatus(.waitingForDevice(targetName: target)); _ = fetchAndCacheReachableDevices()
-            return
         }
         let (mirrored, ipadDisplayID) = syncMirrorIfNeeded(autoMirror: settings.autoMirror)
         _ = fetchAndCacheReachableDevices()
@@ -456,15 +454,13 @@ public final class DeviceWatcher: @unchecked Sendable {
             MaccarLogger.shared.info("DeviceWatcher", "Ignoring connect error for '\(target)' after cancellation or manual hold."); return
         }
         let failureTime = now()
-        let outcome = stateLock.withLock { state -> DeviceWatcherBackoff.FailureOutcome in
+        stateLock.withLock { state in
             state.consecutiveDetachMisses = 0
-            return state.backoff.recordFailure(error: error, at: failureTime)
+            _ = state.backoff.recordFailure(error: error, at: failureTime)
         }
-        if outcome.shouldPauseAutoRetry {
-            MaccarLogger.shared.warning("DeviceWatcher", "Device '\(target)' unreachable after \(outcome.consecutiveNotFoundCount) -200 attempts (\(error.localizedDescription)); pausing auto-retry until USB replug or Reconnect.")
-            updateStatus(.autoRetryPaused(targetName: target)); return
-        }
-        MaccarLogger.shared.error("DeviceWatcher", "Connect error for '\(target)': \(error.localizedDescription). Backing off for \(Int(outcome.interval))s.")
-        updateStatus(.waitingForDevice(targetName: target))
+        // DD-6: any failed connect() already raised a Sidecar popup, so this is the last
+        // automatic attempt. It stays suppressed until a replug or a manual reconnect.
+        MaccarLogger.shared.warning("DeviceWatcher", "Connect failed for '\(target)': \(error.localizedDescription). Auto-connect suppressed until USB replug or manual reconnect.")
+        updateStatus(.autoRetryPaused(targetName: target))
     }
 }

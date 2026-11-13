@@ -32,44 +32,43 @@ struct DeviceWatcherBackoffTests {
         ))
     }
 
-    @Test("evaluateFailure escalates [20, 60, 180] on -200 attempts 1-3 and pauses on attempt 4")
-    func evaluateFailureEscalatesMinus200AndPausesOnFourthAttempt() {
+    @Test("evaluateFailure counts consecutive -200 misses and keeps a constant interval")
+    func evaluateFailureCountsConsecutiveNotFoundMisses() {
         let sidecarError = makeError(domain: "SidecarErrorDomain", code: -200)
         let maccarError = makeError(domain: "com.maccar.sidecar", code: -200)
 
-        let first = DeviceWatcherBackoff.Tracker.evaluateFailure(error: sidecarError, previousNotFoundCount: 0)
-        #expect(first == DeviceWatcherBackoff.FailureOutcome(interval: 20.0, shouldPauseAutoRetry: false, consecutiveNotFoundCount: 1))
+        // DD-6: the interval no longer paces anything — retries stop outright — so it stays
+        // at the constant rather than escalating.
+        for previous in 0...3 {
+            let outcome = DeviceWatcherBackoff.Tracker.evaluateFailure(
+                error: previous.isMultiple(of: 2) ? sidecarError : maccarError,
+                previousNotFoundCount: previous
+            )
+            #expect(outcome.consecutiveNotFoundCount == previous + 1)
+            #expect(outcome.interval == 20.0)
+        }
 
-        let second = DeviceWatcherBackoff.Tracker.evaluateFailure(error: maccarError, previousNotFoundCount: 1)
-        #expect(second == DeviceWatcherBackoff.FailureOutcome(interval: 60.0, shouldPauseAutoRetry: false, consecutiveNotFoundCount: 2))
-
-        let third = DeviceWatcherBackoff.Tracker.evaluateFailure(error: sidecarError, previousNotFoundCount: 2)
-        #expect(third == DeviceWatcherBackoff.FailureOutcome(interval: 180.0, shouldPauseAutoRetry: false, consecutiveNotFoundCount: 3))
-
-        let fourth = DeviceWatcherBackoff.Tracker.evaluateFailure(error: maccarError, previousNotFoundCount: 3)
-        #expect(fourth == DeviceWatcherBackoff.FailureOutcome(interval: 180.0, shouldPauseAutoRetry: true, consecutiveNotFoundCount: 4))
+        #expect(DeviceWatcherBackoff.Tracker.evaluateFailure(error: sidecarError, previousNotFoundCount: 0)
+            == DeviceWatcherBackoff.FailureOutcome(interval: 20.0, consecutiveNotFoundCount: 1))
     }
 
-    @Test("evaluateFailure keeps non-matching errors at 20s without escalation or pause")
-    func evaluateFailureIsolatesNonDeviceNotFoundErrors() {
-        let nonMatchingErrors = [
+    @Test("evaluateFailure treats a non-device-not-found error as a break in the -200 streak")
+    func evaluateFailureResetsCountOnOtherErrors() {
+        // A timeout or transport error still produced a failed connect(), which still
+        // raised a popup, so it latches the gate just the same — but it is not a "-200 miss".
+        let otherErrors = [
             makeError(domain: "SidecarErrorDomain", code: -201),
-            makeError(domain: "SidecarErrorDomain", code: -202),
             makeError(domain: "com.maccar.sidecar", code: -300),
             makeError(domain: "NSCocoaErrorDomain", code: -200)
         ]
 
-        for error in nonMatchingErrors {
-            let outcome = DeviceWatcherBackoff.Tracker.evaluateFailure(error: error, previousNotFoundCount: 2)
-            #expect(outcome == DeviceWatcherBackoff.FailureOutcome(
-                interval: 20.0,
-                shouldPauseAutoRetry: false,
-                consecutiveNotFoundCount: 0
-            ))
+        for error in otherErrors {
+            #expect(DeviceWatcherBackoff.Tracker.evaluateFailure(error: error, previousNotFoundCount: 2)
+                == DeviceWatcherBackoff.FailureOutcome(interval: 20.0, consecutiveNotFoundCount: 0))
         }
     }
 
-    @Test("recordAttempt updates lastAttemptTime only and preserves escalation flags")
+    @Test("recordAttempt updates lastAttemptTime only and leaves the latch untouched")
     func recordAttemptUpdatesOnlyLastAttemptTime() {
         var tracker = DeviceWatcherBackoff.Tracker()
         let firstFailureTime = baseTime.addingTimeInterval(10.0)
@@ -80,38 +79,33 @@ struct DeviceWatcherBackoffTests {
         tracker.recordAttempt(at: nextAttemptTime)
 
         #expect(tracker.lastAttemptTime == nextAttemptTime)
-        #expect(tracker.interval == 60.0)
-        #expect(tracker.isActiveAfterFailure)
+        #expect(tracker.interval == 20.0)
         #expect(tracker.consecutiveNotFoundCount == 2)
-        #expect(!tracker.isAutoRetryPaused)
+        #expect(tracker.isAutoRetryPaused, "recording an attempt must not silently re-arm the gate")
     }
 
-    @Test("recordFailure drives 4-step -200 pause and -300 non-pausing active failure")
-    func recordFailureDrivesMinus200EscalationAndMinus300Isolation() {
+    @Test("recordFailure latches the gate on the first failure and keeps any later error latched")
+    func recordFailureLatchesOnFirstFailure() {
         var tracker = DeviceWatcherBackoff.Tracker()
         let offsets: [TimeInterval] = [0.0, 20.0, 80.0, 260.0]
-        let expectedIntervals: [TimeInterval] = [20.0, 60.0, 180.0, 180.0]
 
         for index in offsets.indices {
             let attemptTime = baseTime.addingTimeInterval(offsets[index])
             let domain = index.isMultiple(of: 2) ? "SidecarErrorDomain" : "com.maccar.sidecar"
-            let outcome = tracker.recordFailure(error: makeError(domain: domain, code: -200), at: attemptTime)
+            _ = tracker.recordFailure(error: makeError(domain: domain, code: -200), at: attemptTime)
             #expect(tracker.lastAttemptTime == attemptTime)
-            #expect(tracker.interval == expectedIntervals[index])
-            #expect(tracker.isActiveAfterFailure)
+            #expect(tracker.interval == 20.0)
             #expect(tracker.consecutiveNotFoundCount == index + 1)
-            #expect(tracker.isAutoRetryPaused == (index == 3))
-            #expect(outcome.shouldPauseAutoRetry == (index == 3))
+            #expect(tracker.isAutoRetryPaused, "failure #\(index + 1) must leave the gate latched")
         }
 
         let timeoutTime = baseTime.addingTimeInterval(500.0)
         let timeoutOutcome = tracker.recordFailure(error: makeError(domain: "com.maccar.sidecar", code: -300), at: timeoutTime)
-        #expect(timeoutOutcome == DeviceWatcherBackoff.FailureOutcome(interval: 20.0, shouldPauseAutoRetry: false, consecutiveNotFoundCount: 0))
+        #expect(timeoutOutcome == DeviceWatcherBackoff.FailureOutcome(interval: 20.0, consecutiveNotFoundCount: 0))
         #expect(tracker.lastAttemptTime == timeoutTime)
         #expect(tracker.interval == 20.0)
-        #expect(tracker.isActiveAfterFailure)
         #expect(tracker.consecutiveNotFoundCount == 0)
-        #expect(!tracker.isAutoRetryPaused)
+        #expect(tracker.isAutoRetryPaused, "a non--200 failure must not re-arm the gate")
     }
 
     @Test("canAutoConnect enforces exact >= interval boundary and allows distantPast")
@@ -122,32 +116,6 @@ struct DeviceWatcherBackoffTests {
         _ = tracker.recordFailure(error: makeError(code: -200), at: baseTime)
         #expect(!tracker.canAutoConnect(at: baseTime.addingTimeInterval(19.999)))
         #expect(tracker.canAutoConnect(at: baseTime.addingTimeInterval(20.0)))
-
-        _ = tracker.recordFailure(error: makeError(code: -200), at: baseTime.addingTimeInterval(20.0))
-        #expect(!tracker.canAutoConnect(at: baseTime.addingTimeInterval(79.999)))
-        #expect(tracker.canAutoConnect(at: baseTime.addingTimeInterval(80.0)))
-    }
-
-    @Test("shouldSuppressPassiveAdoption gates only non-200 failure window <= interval")
-    func shouldSuppressPassiveAdoptionGatesNon200FailureWindow() {
-        var tracker = DeviceWatcherBackoff.Tracker()
-        #expect(!tracker.shouldSuppressPassiveAdoption(manualReconnectRequested: false, at: baseTime))
-
-        _ = tracker.recordFailure(error: makeError(domain: "com.maccar.sidecar", code: -300), at: baseTime)
-        #expect(tracker.shouldSuppressPassiveAdoption(manualReconnectRequested: false, at: baseTime.addingTimeInterval(10.0)))
-        #expect(tracker.shouldSuppressPassiveAdoption(manualReconnectRequested: false, at: baseTime.addingTimeInterval(20.0)))
-        #expect(!tracker.shouldSuppressPassiveAdoption(manualReconnectRequested: false, at: baseTime.addingTimeInterval(20.001)))
-        #expect(!tracker.shouldSuppressPassiveAdoption(manualReconnectRequested: true, at: baseTime.addingTimeInterval(5.0)))
-
-        var notFoundTracker = DeviceWatcherBackoff.Tracker()
-        for step in 0..<4 {
-            _ = notFoundTracker.recordFailure(error: makeError(code: -200), at: baseTime.addingTimeInterval(TimeInterval(step) * 20.0))
-            #expect(!notFoundTracker.shouldSuppressPassiveAdoption(
-                manualReconnectRequested: false,
-                at: baseTime.addingTimeInterval(TimeInterval(step) * 20.0 + 1.0)
-            ))
-        }
-        #expect(notFoundTracker.isAutoRetryPaused)
     }
 
     @Test("resetForReconnect and resetForUSBAttach reset cooldown to 2s and clear flags")
@@ -159,7 +127,6 @@ struct DeviceWatcherBackoffTests {
         reconnectTracker.resetForReconnect()
         #expect(reconnectTracker.lastAttemptTime == .distantPast)
         #expect(reconnectTracker.interval == 2.0)
-        #expect(!reconnectTracker.isActiveAfterFailure)
         #expect(reconnectTracker.consecutiveNotFoundCount == 0)
         #expect(!reconnectTracker.isAutoRetryPaused)
 
@@ -170,7 +137,6 @@ struct DeviceWatcherBackoffTests {
         usbTracker.resetForUSBAttach()
         #expect(usbTracker.lastAttemptTime == .distantPast)
         #expect(usbTracker.interval == 2.0)
-        #expect(!usbTracker.isActiveAfterFailure)
         #expect(usbTracker.consecutiveNotFoundCount == 0)
         #expect(!usbTracker.isAutoRetryPaused)
     }
@@ -183,7 +149,6 @@ struct DeviceWatcherBackoffTests {
         connectedTracker.resetForConnected()
         #expect(connectedTracker.lastAttemptTime == lastTime)
         #expect(connectedTracker.interval == 4.0)
-        #expect(!connectedTracker.isActiveAfterFailure)
         #expect(connectedTracker.consecutiveNotFoundCount == 0)
         #expect(!connectedTracker.isAutoRetryPaused)
 
@@ -194,7 +159,6 @@ struct DeviceWatcherBackoffTests {
         clearedTracker.resetForTargetOrToggleClear()
         #expect(clearedTracker.lastAttemptTime == .distantPast)
         #expect(clearedTracker.interval == 4.0)
-        #expect(!clearedTracker.isActiveAfterFailure)
         #expect(clearedTracker.consecutiveNotFoundCount == 0)
         #expect(!clearedTracker.isAutoRetryPaused)
     }

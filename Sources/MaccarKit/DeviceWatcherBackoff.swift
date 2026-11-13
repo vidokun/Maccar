@@ -3,21 +3,22 @@ import Foundation
 internal enum DeviceWatcherBackoff {
     static let deviceNotFoundErrorCode: Int = -200
     static let knownSidecarDomains: Set<String> = ["SidecarErrorDomain", "com.maccar.sidecar"]
-    static let escalatingSchedule: [TimeInterval] = [20.0, 60.0, 180.0]
     static let nonEscalatingFailureSeconds: TimeInterval = 20.0
     static let defaultSeconds: TimeInterval = 4.0
     static let reconnectSeconds: TimeInterval = 2.0
 
     struct FailureOutcome: Equatable, Sendable {
         let interval: TimeInterval
-        let shouldPauseAutoRetry: Bool
         let consecutiveNotFoundCount: Int
     }
 
+    /// The auto-connect gate. Under the strict zero-popup policy (DD-6) a single failed
+    /// `connect()` latches the gate shut: `SidecarDisplayAgent` raises a popup on *every*
+    /// failed connect, so retrying an unconnectable device can only add popups. Only a
+    /// physical replug or an explicit manual reconnect re-arms it.
     struct Tracker: Sendable {
         private(set) var lastAttemptTime: Date = .distantPast
         private(set) var interval: TimeInterval = DeviceWatcherBackoff.defaultSeconds
-        private(set) var isActiveAfterFailure: Bool = false
         private(set) var consecutiveNotFoundCount: Int = 0
         private(set) var isAutoRetryPaused: Bool = false
 
@@ -27,39 +28,17 @@ internal enum DeviceWatcherBackoff {
                 && nsError.code == DeviceWatcherBackoff.deviceNotFoundErrorCode
         }
 
+        /// Every failure latches the gate. There is deliberately no "should we pause" flag:
+        /// the answer is always yes, and a flag would let that invariant drift back open.
         static func evaluateFailure(error: Error, previousNotFoundCount: Int) -> FailureOutcome {
-            guard isDeviceNotFoundError(error) else {
-                return FailureOutcome(
-                    interval: DeviceWatcherBackoff.nonEscalatingFailureSeconds,
-                    shouldPauseAutoRetry: false,
-                    consecutiveNotFoundCount: 0
-                )
-            }
-            let nextCount = max(0, previousNotFoundCount) + 1
-            let schedule = DeviceWatcherBackoff.escalatingSchedule
-            if nextCount <= schedule.count {
-                return FailureOutcome(
-                    interval: schedule[nextCount - 1],
-                    shouldPauseAutoRetry: false,
-                    consecutiveNotFoundCount: nextCount
-                )
-            }
-            return FailureOutcome(
-                interval: schedule[schedule.count - 1],
-                shouldPauseAutoRetry: true,
-                consecutiveNotFoundCount: nextCount
+            FailureOutcome(
+                interval: DeviceWatcherBackoff.nonEscalatingFailureSeconds,
+                consecutiveNotFoundCount: isDeviceNotFoundError(error) ? max(0, previousNotFoundCount) + 1 : 0
             )
         }
 
         func canAutoConnect(at currentTime: Date) -> Bool {
             currentTime.timeIntervalSince(lastAttemptTime) >= interval
-        }
-
-        func shouldSuppressPassiveAdoption(manualReconnectRequested: Bool, at currentTime: Date) -> Bool {
-            if isAutoRetryPaused || consecutiveNotFoundCount > 0 || manualReconnectRequested || !isActiveAfterFailure {
-                return false
-            }
-            return currentTime.timeIntervalSince(lastAttemptTime) <= interval
         }
 
         mutating func recordAttempt(at currentTime: Date) {
@@ -70,9 +49,8 @@ internal enum DeviceWatcherBackoff {
             let outcome = Self.evaluateFailure(error: error, previousNotFoundCount: consecutiveNotFoundCount)
             lastAttemptTime = currentTime
             interval = outcome.interval
-            isActiveAfterFailure = true
             consecutiveNotFoundCount = outcome.consecutiveNotFoundCount
-            isAutoRetryPaused = outcome.shouldPauseAutoRetry
+            isAutoRetryPaused = true
             return outcome
         }
 
@@ -97,7 +75,6 @@ internal enum DeviceWatcherBackoff {
                 lastAttemptTime = .distantPast
             }
             self.interval = interval
-            isActiveAfterFailure = false
             consecutiveNotFoundCount = 0
             isAutoRetryPaused = false
         }

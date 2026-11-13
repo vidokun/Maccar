@@ -263,8 +263,8 @@ struct DeviceWatcherTests {
         #expect(harnessB.watcher.status == .error(message: "Transport failed"))
     }
 
-    @Test("Connect failure backoff blocks passive adoption of late orphan session until expired")
-    func connectFailureBackoffBlocksPassiveSessionAdoptionUntilExpired() {
+    @Test("A latched gate still adopts an existing Control Center session without reconnecting")
+    func latchedGateStillAdoptsExistingSession() {
         let harness = makeHarness(autoConnect: true, autoMirror: true)
         harness.sidecar.reachableDevicesResult = .success(["VPad"])
         harness.sidecar.connectError = NSError(
@@ -272,23 +272,20 @@ struct DeviceWatcherTests {
             code: -300,
             userInfo: [NSLocalizedDescriptionKey: "Timed out"]
         )
-
         harness.watcher.performTickForTesting()
-        #expect(harness.watcher.status == .waitingForDevice(targetName: "VPad"))
+        #expect(harness.sidecar.connectCalls.count == 1)
+        #expect(harness.watcher.status == .autoRetryPaused(targetName: "VPad"))
 
+        // The user starts the session themselves in Control Center. Observing it issues no
+        // connect(), so no popup is possible and DD-6 must not tear it down.
         harness.sidecar.connectError = nil
-        harness.sidecar.connectedDeviceNames = ["VPad"]
-        harness.clock.advance(by: 5.0)
-        harness.watcher.performTickForTesting()
-        #expect(harness.watcher.status == .waitingForDevice(targetName: "VPad"))
-        #expect(harness.sidecar.disconnectCalls == [MockDisconnectCall(deviceName: "VPad", ignoreNotConnected: true)])
-
-        harness.clock.advance(by: 16.0)
         harness.sidecar.connectedDeviceNames = ["VPad"]
         harness.mirror.ipadDisplayID = 53
         harness.virtualDisplay.activeDisplayID = 100
         harness.watcher.performTickForTesting()
         #expect(harness.watcher.status == .connected(deviceName: "VPad", displayID: 53, mirrored: true))
+        #expect(harness.sidecar.connectCalls.count == 1, "adoption must never call connect()")
+        #expect(harness.sidecar.disconnectCalls.isEmpty, "a legitimate session must never be torn down")
     }
 
     @Test("Duplicate reconnectNow bursts while in flight are coalesced cleanly")
@@ -405,5 +402,113 @@ struct DeviceWatcherTests {
         harness.watcher.reconnectNow()
         harness.watcher.flushQueueForTesting()
         #expect(harness.sidecar.connectCalls.count == 1)
+    }
+
+    @Test("One connect failure stops all further auto-connect attempts (strict zero-popup gate)")
+    func singleFailureSuppressesAllFurtherAutoConnect() {
+        let harness = makeHarness(dispatchesReconnectTicks: false)
+        harness.sidecar.reachableDevicesResult = .success(["VPad"])
+        harness.sidecar.connectError = NSError(
+            domain: "SidecarErrorDomain",
+            code: 4999,
+            userInfo: [NSLocalizedDescriptionKey: "stub failure"]
+        )
+
+        harness.watcher.performTickForTesting()
+        harness.watcher.flushQueueForTesting()
+        #expect(harness.sidecar.connectCalls.count == 1, "the first tick must attempt a connect")
+
+        // DD-6: after one failure Maccar never auto-connects again. It keeps polling
+        // presence so the menu stays live, but every connect would raise another
+        // SidecarDisplayAgent popup, so it must not issue any.
+        for _ in 0..<20 {
+            harness.clock.advance(by: 5.0)
+            harness.watcher.performTickForTesting()
+            harness.watcher.flushQueueForTesting()
+        }
+        #expect(harness.sidecar.connectCalls.count == 1, "suppressed after failure; got \(harness.sidecar.connectCalls.count) connects")
+        #expect(harness.watcher.isAutoRetryPausedForTesting)
+    }
+
+    @Test("A USB replug re-arms the gate and yields exactly one connect attempt")
+    func replugReArmsStickyGateOnce() {
+        let harness = makeHarness(dispatchesReconnectTicks: true)
+        harness.sidecar.reachableDevicesResult = .success(["VPad"])
+        harness.sidecar.connectError = NSError(
+            domain: "SidecarErrorDomain",
+            code: 4999,
+            userInfo: [NSLocalizedDescriptionKey: "stub failure"]
+        )
+
+        harness.watcher.performTickForTesting()
+        harness.watcher.flushQueueForTesting()
+        #expect(harness.sidecar.connectCalls.count == 1)
+
+        harness.watcher.notifyUSBDeviceAttached()
+        harness.watcher.flushQueueForTesting()
+        #expect(harness.sidecar.connectCalls.count == 2, "a replug must re-arm exactly one attempt")
+
+        // That re-armed attempt failed too, so the gate must be sticky again.
+        for _ in 0..<10 {
+            harness.clock.advance(by: 5.0)
+            harness.watcher.performTickForTesting()
+            harness.watcher.flushQueueForTesting()
+        }
+        #expect(harness.sidecar.connectCalls.count == 2, "a failed re-arm must not allow a burst")
+    }
+
+    @Test("A manual Reconnect Now is never suppressed by the sticky gate")
+    func manualReconnectBypassesStickyGate() {
+        let harness = makeHarness(dispatchesReconnectTicks: true)
+        harness.sidecar.reachableDevicesResult = .success(["VPad"])
+        harness.sidecar.connectError = NSError(
+            domain: "SidecarErrorDomain",
+            code: 4999,
+            userInfo: [NSLocalizedDescriptionKey: "stub failure"]
+        )
+
+        harness.watcher.performTickForTesting()
+        harness.watcher.flushQueueForTesting()
+        #expect(harness.sidecar.connectCalls.count == 1)
+
+        // DD-2: "manual always wins". The gate must not degrade into "user cannot retry".
+        harness.watcher.reconnectNow()
+        harness.watcher.flushQueueForTesting()
+        #expect(harness.sidecar.connectCalls.count == 2, "manual press must still attempt a connect")
+    }
+
+    @Test("A manual Reconnect Now with the iPad absent never calls connect()")
+    func manualReconnectSkipsConnectWhenTargetIsNotReachable() {
+        let harness = makeHarness(dispatchesReconnectTicks: true)
+        // The iPad is registered but not currently offered by Sidecar — cable unplugged.
+        harness.sidecar.reachableDevicesResult = .success([])
+
+        harness.watcher.reconnectNow()
+        harness.watcher.flushQueueForTesting()
+
+        // Calling connect() on an absent device is exactly what raises the Apple popup,
+        // so the manual path must check reachability too, not just the auto path.
+        #expect(harness.sidecar.connectCalls.isEmpty, "no connect() may be issued for an absent device")
+        #expect(harness.watcher.status == .waitingForDevice(targetName: "VPad"))
+    }
+
+    @Test("A manual Reconnect Now that skips an absent device reports connection honestly")
+    func manualReconnectSkippedKeepsConnectedStatusWhenSessionStillLives() {
+        let harness = makeHarness(dispatchesReconnectTicks: true)
+        harness.sidecar.reachableDevicesResult = .success(["VPad"])
+        harness.sidecar.connectedDeviceNames = ["VPad"]
+        harness.virtualDisplay.activeDisplayID = 100
+        harness.mirror.ipadDisplayID = 53
+        harness.watcher.performTickForTesting()
+        #expect(harness.watcher.status == .connected(deviceName: "VPad", displayID: 53, mirrored: true))
+
+        // The iPad goes to sleep: it vanishes from Sidecar's reachable list but the session
+        // is still alive. Reconnect must not connect() — and must not claim to be waiting
+        // for a device it is in fact still connected to.
+        harness.sidecar.reachableDevicesResult = .success([])
+        harness.watcher.reconnectNow()
+        harness.watcher.flushQueueForTesting()
+        #expect(harness.sidecar.connectCalls.isEmpty, "adoption and the skip both issue no connect()")
+        #expect(harness.watcher.status == .connected(deviceName: "VPad", displayID: 53, mirrored: true))
     }
 }

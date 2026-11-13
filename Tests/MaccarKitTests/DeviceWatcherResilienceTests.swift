@@ -36,13 +36,11 @@ struct DeviceWatcherResilienceTests {
         return ResilienceHarness(sidecar: sidecar, virtualDisplay: vd, mirror: mirror, settings: settings, clock: clock, watcher: watcher)
     }
 
+    /// Drive the watcher into the latched state. Under DD-6 a single failure is enough.
     private func driveMinus200ToAutoRetryPaused(_ harness: ResilienceHarness) {
         harness.sidecar.reachableDevicesResult = .success(["VPad"])
         harness.sidecar.connectError = NSError(domain: "SidecarErrorDomain", code: -200, userInfo: nil)
-        for gap in [0.0, 20.0, 60.0, 180.0] {
-            if gap > 0 { harness.clock.advance(by: gap) }
-            harness.watcher.performTickForTesting()
-        }
+        harness.watcher.performTickForTesting()
         #expect(harness.watcher.status == .autoRetryPaused(targetName: "VPad"))
     }
 
@@ -54,42 +52,42 @@ struct DeviceWatcherResilienceTests {
         harness.watcher.performTickForTesting()
     }
 
-    @Test("Sidecar -200 escalates 0s -> +20s -> +80s -> +260s -> autoRetryPaused with zero later retries")
+    @Test("Sidecar -200 latches the gate on the first failure and never retries on its own")
     func minus200EscalatesAndPausesAutoRetry() {
         let harness = makeHarness()
         harness.sidecar.reachableDevicesResult = .success(["VPad"])
         harness.sidecar.connectError = NSError(domain: "SidecarErrorDomain", code: -200, userInfo: nil)
         harness.watcher.performTickForTesting()
         #expect(harness.sidecar.connectCalls.count == 1)
-        #expect(harness.watcher.status == .waitingForDevice(targetName: "VPad"))
-        for (step, count, paused) in [(20.0, 2, false), (60.0, 3, false), (180.0, 4, true)] {
-            harness.clock.advance(by: step)
+        // DD-6: the first failure already latches, so no intermediate escalating wait exists.
+        #expect(harness.watcher.status == .autoRetryPaused(targetName: "VPad"))
+
+        for gap in [20.0, 60.0, 180.0, 600.0] {
+            harness.clock.advance(by: gap)
             harness.watcher.performTickForTesting()
-            #expect(harness.sidecar.connectCalls.count == count)
-            #expect(harness.watcher.status == (paused ? .autoRetryPaused(targetName: "VPad") : .waitingForDevice(targetName: "VPad")))
         }
-        harness.clock.advance(by: 600.0)
-        harness.watcher.performTickForTesting()
-        #expect(harness.sidecar.connectCalls.count == 4)
+        #expect(harness.sidecar.connectCalls.count == 1, "no automatic retry after any failure")
         #expect(harness.watcher.status == .autoRetryPaused(targetName: "VPad"))
     }
 
-    @Test("Non-200 errors keep 20s retry and Control Center Sidecar adoption succeeds while paused")
+    @Test("Non--200 errors also latch, and Control Center Sidecar adoption still succeeds while paused")
     func non200ErrorsStayAt20sAndControlCenterAdoptsDuringPause() {
         let harnessA = makeHarness()
         harnessA.sidecar.reachableDevicesResult = .success(["VPad"])
         harnessA.sidecar.connectError = NSError(domain: "SidecarErrorDomain", code: -202, userInfo: nil)
         harnessA.watcher.performTickForTesting()
-        harnessA.clock.advance(by: 19.0); harnessA.watcher.performTickForTesting()
         #expect(harnessA.sidecar.connectCalls.count == 1)
-        harnessA.clock.advance(by: 1.0); harnessA.watcher.performTickForTesting()
-        #expect(harnessA.sidecar.connectCalls.count == 2)
-        harnessA.sidecar.connectError = NSError(domain: "com.maccar.sidecar", code: -300, userInfo: nil)
-        for expected in 3...5 {
-            harnessA.clock.advance(by: 20.0); harnessA.watcher.performTickForTesting()
-            #expect(harnessA.sidecar.connectCalls.count == expected)
-            #expect(harnessA.watcher.status == .waitingForDevice(targetName: "VPad"))
+        // Every failed connect() raised a popup, so DD-6 makes no exception for the code.
+        #expect(harnessA.watcher.status == .autoRetryPaused(targetName: "VPad"))
+
+        for gap in [19.0, 1.0, 20.0, 20.0, 20.0] {
+            harnessA.clock.advance(by: gap)
+            harnessA.watcher.performTickForTesting()
         }
+        #expect(harnessA.sidecar.connectCalls.count == 1, "no automatic retry for non--200 errors either")
+        #expect(harnessA.watcher.status == .autoRetryPaused(targetName: "VPad"))
+
+        // Adopting a session the user started in Control Center must still work.
         let harnessB = makeHarness()
         driveMinus200ToAutoRetryPaused(harnessB)
         harnessB.sidecar.connectError = nil
@@ -111,7 +109,8 @@ struct DeviceWatcherResilienceTests {
         asyncHarness.mirror.ipadDisplayID = 53
         asyncHarness.watcher.notifyUSBDeviceAttached()
         asyncHarness.watcher.flushQueueForTesting()
-        #expect(asyncHarness.sidecar.connectCalls.count == 5)
+        // One failed attempt plus exactly one retry the replug is allowed to make.
+        #expect(asyncHarness.sidecar.connectCalls.count == 2)
         #expect(asyncHarness.watcher.status == .connected(deviceName: "VPad", displayID: 53, mirrored: true))
 
         let holdHarness = makeHarness(autoConnect: false, dispatchesReconnectTicks: true)
@@ -139,7 +138,8 @@ struct DeviceWatcherResilienceTests {
         #expect(harness.watcher.status == .autoRetryPaused(targetName: "VPad"))
         harness.watcher.performTickForTesting()
         #expect(harness.watcher.status == .waitingForDevice(targetName: "VPad"))
-        #expect(harness.sidecar.connectCalls.count == 4)
+        // Clearing the latch on detach does not itself attempt a connection.
+        #expect(harness.sidecar.connectCalls.count == 1)
     }
 
     @Test("setAutoConnectEnabled preserves manual hold while clearTargetState resets both pause and hold")
