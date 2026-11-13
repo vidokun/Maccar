@@ -59,17 +59,6 @@ Download the latest disk image directly from [Maccar.dmg](https://github.com/vid
 
 Once installed, open the Menu Bar icon and click **Check for Updates...** to pull a verified release.
 
-### Option 3: Build from Source (Xcode 16+ or Swift 6)
-
-```sh
-./maccar.sh install   # Compile release build and install /Applications/Maccar.app
-./maccar.sh dmg       # Build release .dmg and .zip packages
-./maccar.sh test      # Run Swift Testing suite with isolated temp logs
-./maccar.sh cleanup   # Remove legacy third-party Sidecar launch agents
-```
-
-Distribution builds accept Hardened Runtime signing (`MACCAR_SIGN_IDENTITY`) and notarization (`MACCAR_NOTARY_PROFILE`) strictly through environment variables.
-
 ---
 
 ## Screenshots
@@ -107,7 +96,7 @@ Maccar ships with curated Retina and 16:9 presets. Any preset not marked usable 
 | iPad 4:3 (9.7" / Mini 1-5) | `1366x1024` Comfortable, `2048x1536` Max Space |
 | Standard 16:9 | `1920x1080` (1080p), `2560x1440` (1440p), `3840x2160` (4K) |
 
-Run CLI subcommands via `./maccar.sh <command>` or `/Applications/Maccar.app/Contents/MacOS/maccar <command>`:
+Run CLI subcommands via `/Applications/Maccar.app/Contents/MacOS/maccar <command>`:
 
 | Command | Action |
 |---|---|
@@ -170,6 +159,10 @@ Workflow **Sidecar tanpa monitor** untuk **Mac mini headless iPad display** lang
    Tambahkan `--dry-run` untuk simulasi cek, `--version` untuk memilih versi, atau `--prefix` untuk folder tujuan lain.
 
 2. Lewat file `.dmg`: unduh [Maccar.dmg](https://github.com/vidokun/Maccar/releases/latest/download/Maccar.dmg), pindahkan `Maccar.app` ke folder `Applications`, lalu buka seperti biasa. Pembaruan berikutnya cukup lewat **Check for Updates...** di Menu Bar.
+
+### Menjalankan Subcommand CLI
+
+Setelah Maccar terpasang, jalankan subcommand lewat `/Applications/Maccar.app/Contents/MacOS/maccar <perintah>` — lihat [tabel perintah](#display-presets--cli-reference) di atas.
 
 ---
 
