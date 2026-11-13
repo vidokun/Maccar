@@ -28,7 +28,7 @@
     'copy.label': ['Copy', 'Salin'],
     'copy.aria': ['Copy installer command', 'Salin perintah pemasangan'],
     'copy.done': ['Copied!', 'Tersalin!'],
-    'install.cli.title': ['One-line CLI installer', 'Pemasang CLI satu baris'],
+    'install.cli.title': ['One-line terminal installer', 'Pemasang terminal satu baris'],
     'install.cli.text': ['No Xcode and no Command Line Tools. Add --dry-run to preview the checks, --version to pin a release, or --prefix to pick another folder.', 'Tanpa Xcode, tanpa Command Line Tools. Tambahkan --dry-run buat lihat pengecekan, --version buat pilih versi, atau --prefix buat ganti folder tujuan.'],
     'install.dmg.title': ['Disk image', 'File disk image'],
     'install.dmg.text': ['Open the image, drag Maccar.app into Applications, then launch it. Later releases arrive through Check for Updates in the menu bar.', 'Buka image, geser Maccar.app ke Applications, lalu jalankan. Rilis berikutnya masuk lewat Check for Updates di menu bar.'],

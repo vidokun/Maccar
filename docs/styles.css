@@ -252,7 +252,7 @@ code {
 .screenshot-frame img { border-radius: var(--radius-md); border: 1px solid var(--border); margin-inline: auto; }
 .screenshot-caption { margin-top: var(--space-4); margin-bottom: 0; font-size: 14px; color: var(--text-secondary); }
 
-/* Presets & CLI Reference Table */
+/* Presets Table */
 .table-wrap {
   width: 100%; max-width: 100%; overflow-x: auto;
   border: 1px solid var(--border); border-radius: var(--radius-md); background-color: var(--bg-card);

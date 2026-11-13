@@ -1,3 +1,4 @@
+#if DEBUG
 import AppKit
 import MaccarKit
 
@@ -57,7 +58,32 @@ enum ScreenshotExporter {
             isCheckingForUpdates: false,
             availableUpdateVersion: nil
         )
+        applyPackagedVersionLine(to: controller)
         return renderMenuPopover(items: controller.previewMenu.items)
+    }
+
+    /// The debug binary has no `Info.plist`, so the live menu reports a bare version. The
+    /// published screenshot is documentation for the packaged app, so it must show the same
+    /// `Version 1.4.1 (build 7)` line a user sees — read from the plist the bundle is built from.
+    private static func applyPackagedVersionLine(to controller: MenuBarController) {
+        guard let packaged = packagedVersion(),
+              let versionItem = controller.previewMenu.items.last(where: { $0.title.hasPrefix("Version ") })
+        else { return }
+        versionItem.title = "Version \(packaged.version) (build \(packaged.build))"
+    }
+
+    private static func packagedVersion() -> (version: String, build: String)? {
+        let repoRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()  // MaccarApp
+            .deletingLastPathComponent()  // Sources
+            .deletingLastPathComponent()  // repo root
+        let plistURL = repoRoot.appendingPathComponent("scripts/Info.plist")
+        guard let data = try? Data(contentsOf: plistURL),
+              let plist = try? PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any],
+              let version = plist["CFBundleShortVersionString"] as? String,
+              let build = plist["CFBundleVersion"] as? String
+        else { return nil }
+        return (version, build)
     }
 
     // MARK: - Window chrome composite
@@ -226,14 +252,17 @@ enum ScreenshotExporter {
 
     private static func sampleLogEntries() -> [LogEntry] {
         let base = Date(timeIntervalSince1970: 1_763_000_000)
+        // The fixtures name a version, so they read from the plist too: a screenshot that
+        // announces v1.4.0 next to a `Version 1.4.1` menu is a contradiction in one image.
+        let version = packagedVersion()?.version ?? MaccarAppInfo.shortVersion
         return [
-            ("App", "Maccar v1.4.0 Menu Bar application starting.", LogLevel.info),
+            ("App", "Maccar v\(version) Menu Bar application starting.", LogLevel.info),
             ("Display", "Headless virtual display active: ID 42 (iPad Mini Comfortable).", .info),
             ("Sidecar", "Sidecar session established with 'VPad' over USB.", .info),
             ("Mirror", "Mirroring enabled to virtual display 42.", .info),
             ("DeviceWatcher", "USB attach burst debounced; single reconnect scheduled.", .warning),
             ("HotKey", "Registered global shortcut for Reconnect.", .info),
-            ("Updater", "Update check complete: v1.4.0 is the latest release.", .info),
+            ("Updater", "Update check complete: v\(version) is the latest release.", .info),
         ].enumerated().map { offset, sample in
             LogEntry(
                 timestamp: base.addingTimeInterval(Double(offset) * 3),
@@ -244,3 +273,4 @@ enum ScreenshotExporter {
         }
     }
 }
+#endif

@@ -19,6 +19,8 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
     private var pendingMenuRebuild: Bool = false
 
     /// Exposed so `ScreenshotExporter` can render the live menu without a status item.
+    /// The exporter is DEBUG-only, but the property is not: gating it here would couple
+    /// this controller to a build flag for no gain, and `isPreview` is used in release too.
     internal var previewMenu: NSMenu { menu }
 
     var isOperationBusy: Bool { isDisconnectInFlight || isResolutionSwitchInFlight }
@@ -219,8 +221,13 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
         )
         menu.addItem(NSMenuItem.separator())
         addUpdateItem(isChecking: isCheckingForUpdates, availableVersion: availableUpdateVersion)
+        menu.addItem(makeItem("Copy Diagnostics", action: #selector(copyDiagnosticsTapped)))
         menu.addItem(makeItem("Diagnostics & Logs...", action: #selector(logsTapped), key: "l"))
         menu.addItem(makeItem("About Maccar...", action: #selector(aboutTapped)))
+        menu.addItem(NSMenuItem.separator())
+        // Version belongs in the menu: with no CLI `--version`, opening About was the only
+        // way to read it, and a support conversation starts with "which build are you on?".
+        menu.addItem(makeDisabledItem(diagnosticsVersionLine()))
         menu.addItem(makeItem("Quit Maccar", action: #selector(quitTapped), key: "q"))
     }
 

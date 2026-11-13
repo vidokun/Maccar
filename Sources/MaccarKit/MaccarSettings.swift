@@ -155,7 +155,8 @@ public final class MaccarSettings: @unchecked Sendable {
     /// macOS has merely not confirmed yet. The title, by contrast, does surface the pending
     /// approval, so the menu explains itself instead of looking broken.
     public var launchAtLoginMenuItem: LaunchAtLoginMenuItem {
-        // A CLI process has no login item; offering a toggle it cannot honour would be a lie.
+        // A process running outside an app bundle (the test runner) has no login item;
+        // offering a toggle it cannot honour would be a lie.
         guard isAppBundle else {
             return LaunchAtLoginMenuItem(isOn: false, title: LaunchAtLoginMenuItem.defaultTitle, needsApproval: false)
         }

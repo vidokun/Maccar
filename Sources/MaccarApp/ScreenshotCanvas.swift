@@ -1,3 +1,4 @@
+#if DEBUG
 import AppKit
 
 /// Low-level offscreen rasterisation for `ScreenshotExporter`: builds Retina bitmaps whose
@@ -89,3 +90,4 @@ enum ScreenshotExportError: LocalizedError {
         }
     }
 }
+#endif

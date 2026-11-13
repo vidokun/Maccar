@@ -2,15 +2,25 @@
 
 All notable changes to **Maccar** are documented in this file.
 
+## [v1.4.1] - 2026-11-13
+### Changed
+- **The command-line interface is gone; Maccar is a Menu Bar app.** The `status`, `virtual`, `mirror`, `connect`, `disconnect`, and `daemon` subcommands were removed along with their handlers. Two interfaces over one `DeviceWatcher` meant every fix had to hold in both, and the CLI could not reach the app's live state anyway — it started a second process with its own virtual display, which is why its own output said `No active virtual display in CLI process`. `maccar`, `--version`, and `help` remain.
+- **Status is visible without a terminal.** The Menu Bar menu now ends with a `Version <short> (build <n>)` line, and a **Copy Diagnostics** item puts a paste-ready report on the clipboard: app version and build, macOS version, launch-at-login intent *and* the macOS grant, reachable and connected iPads, mirror status, and the log path. Paths are shortened to `~/` so the report can be pasted into a public issue.
+- **Version strings come from one place.** `MaccarAppInfo` (`Sources/MaccarKit/MaccarAppInfo.swift`) replaces three separate `?? "1.4.0"` fallbacks in `main.swift`, the About window, and the Menu Bar, so a release bump is a single edit.
+- **The release-screenshot tool is no longer part of the shipped app.** `ScreenshotCanvas`, `ScreenshotExporter`, and their entry point are compiled behind `#if DEBUG`; `scripts/package_app.sh` builds with `-c release`, so the tool is absent from the binary users download. Screenshots are still regenerated from a debug build.
+
+### Fixed
+- `README.md` no longer documents a command-line reference or a `maccar status` sample, and the Indonesian section no longer points readers at a subcommand to run.
+
 ## [v1.4.0] - 2026-11-13 12:44 +0700
 ### Added
-- `SingleInstanceGuard` (`Sources/MaccarKit/SingleInstanceGuard.swift`): a per-user `flock` that lets exactly one Maccar process own the `DeviceWatcher`. Two live instances each called `SidecarCoreConnectDevice` independently, producing `-100` session rejections and one stacked system alert per failed call. A second launch now activates the running copy and exits instead of competing for the same Sidecar session. The guard is scoped to the app and daemon run paths only, so the test runner and read-only CLI subcommands are unaffected.
+- `SingleInstanceGuard` (`Sources/MaccarKit/SingleInstanceGuard.swift`): a per-user `flock` that lets exactly one Maccar process own the `DeviceWatcher`. Two live instances each called `SidecarCoreConnectDevice` independently, producing `-100` session rejections and one stacked system alert per failed call. A second launch now activates the running copy and exits instead of competing for the same Sidecar session. The guard is scoped to the app run path only, so the test runner is unaffected.
 
 ### Changed
 - **Strict zero-popup retry policy.** A single failed `connect()` now latches the auto-connect gate shut. `SidecarDisplayAgent` raises a popup on *every* failed connect, so retrying an unconnectable device could only add popups. Only a physical USB replug or an explicit manual reconnect (Menu Bar or `⌃⌥⌘R`) re-arms it. The `20s -> 60s -> 180s -> pause` escalation ladder is gone; `DeviceWatcherBackoff.escalatingSchedule` and `shouldSuppressPassiveAdoption` were removed with it, and presence polling is a flat 5 s.
 - **`Launch at Login` is split into two pieces of state.** `maccar_start_at_login_intent` records what the user asked for; `maccar_start_at_login` mirrors what macOS actually granted. The intent key is deliberately excluded from `register(defaults:)` and read only through `object(forKey:)`, so an absent key stays distinguishable from an explicit opt-out. v1.3.0-era keys are migrated once on launch.
 - **The Menu Bar checkbox renders intent, not the grant.** While approval is pending macOS reports `.requiresApproval` but the user has already said yes; rendering that as unchecked invited a second press that registered again instead of switching the feature off. The item title now carries the approval guidance instead.
-- **`README.md` documents exactly two install paths** — the `install.sh` one-liner and the DMG — in both languages. Build-from-source is no longer a published path. The CLI reference now points at the installed binary (`/Applications/Maccar.app/Contents/MacOS/maccar`); `maccar.sh` stays in the repo for development.
+- **`README.md` documents exactly two install paths** — the `install.sh` one-liner and the DMG — in both languages. Build-from-source is no longer a published path.
 
 ### Fixed
 - **`Launch at Login` now survives a reboot.** Three stacked defects conspired: `register(defaults:)` made an absent opt-in key read as `false`, the getter contradicted the setter by reporting the macOS grant rather than the stored choice, and so `syncLoginItemOnLaunch()` returned on its first guard every launch — `register()` was never called, even though the log reported the opt-in was set.

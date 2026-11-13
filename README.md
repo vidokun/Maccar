@@ -20,7 +20,7 @@
 
 ## English
 
-Maccar is a native macOS Menu Bar and CLI app for **Headless Sidecar** workflows on macOS 14+.
+Maccar is a native macOS Menu Bar app for **Headless Sidecar** workflows on macOS 14+.
 
 Apple blocks **Sidecar without monitor** hardware, so a **Mac mini headless iPad display** normally requires an HDMI dummy plug. Maccar creates a Retina `CGVirtualDisplay` screen in macOS memory instead. Connect your iPad over USB-C or Wi-Fi and it mirrors automatically.
 
@@ -39,7 +39,7 @@ Apple blocks **Sidecar without monitor** hardware, so a **Mac mini headless iPad
 
 ## Install
 
-### Option 1: One-Line CLI Installer (Zero Xcode Tools Needed)
+### Option 1: One-Line Terminal Installer (Zero Xcode Tools Needed)
 
 Run the verified installer script in Terminal. It checks macOS 14+, verifies `SHA-256` and `codesign` integrity, and installs `/Applications/Maccar.app`:
 
@@ -82,7 +82,7 @@ Once installed, open the Menu Bar icon and click **Check for Updates...** to pul
 
 ---
 
-## Display Presets & CLI Reference
+## Display Presets
 
 Maccar ships with curated Retina and 16:9 presets. Any preset not marked usable for desktop GUI on the active display is filtered out automatically.
 
@@ -96,37 +96,13 @@ Maccar ships with curated Retina and 16:9 presets. Any preset not marked usable 
 | iPad 4:3 (9.7" / Mini 1-5) | `1366x1024` Comfortable, `2048x1536` Max Space |
 | Standard 16:9 | `1920x1080` (1080p), `2560x1440` (1440p), `3840x2160` (4K) |
 
-Run CLI subcommands via `/Applications/Maccar.app/Contents/MacOS/maccar <command>`:
+Every preset is reachable from **Virtual Display Resolution** in the Menu Bar. The list filters itself to the modes the active display actually supports, so an unusable preset never appears and a switch never fails.
 
-| Command | Action |
-|---|---|
-| `maccar` | Launch the Menu Bar application (default). |
-| `maccar status` | Print API health, shortcut status, log path, reachable iPads, and mirror state. |
-| `maccar virtual [preset \| off]` | Create a virtual display (`mini`, `air`, `pro11`, `pro13`, `ipad`, `1080p`, `1440p`, `4k`) or destroy it (`off`). |
-| `maccar mirror [on \| off]` | Mirror the active virtual display to the detected iPad, or disable mirroring. |
-| `maccar connect [device_name] [-wireless]` | Start a Sidecar session (wired USB by default; add `-wireless` for Wi-Fi). |
-| `maccar disconnect [device_name]` | Stop the active Sidecar session. |
-| `maccar daemon` | Run headless without GUI while keeping the virtual display and USB watcher active. |
-| `maccar help` | Show CLI usage and flags (`-h`, `--help`). |
+### Reporting a Problem
 
-### Example `maccar status` Output
+Open the Menu Bar menu and click **Copy Diagnostics**, then paste the result into an issue. The report carries the app version and build, macOS version, launch-at-login state, reachable and connected iPads, mirror status, and the log path — with your home directory shortened to `~/` so nothing personal is included.
 
-```text
-=== Maccar System Status ===
-Virtual Display API: Available
-SidecarCore API:     Available
-Registered iPad:     VPad
-Auto-Connect:        Enabled
-Auto-Mirror:         Enabled
-Global Shortcut:     Enabled (⌃⌥⌘R)
-Log File:            ~/Library/Logs/Maccar/maccar.log
-Reachable iPads:     VPad
-Connected iPads:     VPad
-Online Display IDs:  1, 48, 53
-Mirror Status:       No active virtual display in CLI process
-```
-
-Active Menu Bar logs write to `~/Library/Logs/Maccar/maccar.log` and rotate to `~/Library/Logs/Maccar/maccar.log.1` at `512 KB`.
+Active logs write to `~/Library/Logs/Maccar/maccar.log` and rotate to `~/Library/Logs/Maccar/maccar.log.1` at `512 KB`; open them with **Diagnostics & Logs...**.
 
 ---
 
@@ -160,9 +136,9 @@ Workflow **Sidecar tanpa monitor** untuk **Mac mini headless iPad display** lang
 
 2. Lewat file `.dmg`: unduh [Maccar.dmg](https://github.com/vidokun/Maccar/releases/latest/download/Maccar.dmg), pindahkan `Maccar.app` ke folder `Applications`, lalu buka seperti biasa. Pembaruan berikutnya cukup lewat **Check for Updates...** di Menu Bar.
 
-### Menjalankan Subcommand CLI
+### Melaporkan Masalah
 
-Setelah Maccar terpasang, jalankan subcommand lewat `/Applications/Maccar.app/Contents/MacOS/maccar <perintah>` — lihat [tabel perintah](#display-presets--cli-reference) di atas.
+Buka menu Menu Bar lalu klik **Copy Diagnostics**, kemudian tempel hasilnya ke issue. Laporan itu berisi versi dan build aplikasi, versi macOS, status Launch at Login, iPad yang terdeteksi dan terhubung, status mirror, serta lokasi log — dengan folder home dipersingkat jadi `~/` supaya tidak ada data pribadi yang ikut.
 
 ---
 

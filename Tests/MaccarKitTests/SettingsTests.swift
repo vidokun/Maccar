@@ -311,12 +311,13 @@ struct SettingsTests {
         }
 
         try withIsolatedDefaults { defaults in
-            // The CLI has no login item at all and must never render an actionable toggle.
+            // Outside an app bundle (the test runner) there is no login item at all, so the
+            // toggle must never render as actionable.
             defaults.set(true, forKey: "maccar_start_at_login_intent")
-            let cli = MaccarSettings(
+            let outOfBundle = MaccarSettings(
                 defaults: defaults, isAppBundle: false, loginItemManager: MockLoginItemManager(status: .notRegistered)
             )
-            #expect(cli.launchAtLoginMenuItem.isOn == false)
+            #expect(outOfBundle.launchAtLoginMenuItem.isOn == false)
         }
     }
 
@@ -335,11 +336,11 @@ struct SettingsTests {
             settings.startAtLogin = false
             #expect(settings.shouldPromptForApproval == false)
 
-            // A CLI process has no login item and must never raise this prompt.
-            let cli = MaccarSettings(
+            // Outside an app bundle there is no login item and this prompt must never fire.
+            let outOfBundle = MaccarSettings(
                 defaults: defaults, isAppBundle: false, loginItemManager: MockLoginItemManager(status: .requiresApproval)
             )
-            #expect(cli.shouldPromptForApproval == false)
+            #expect(outOfBundle.shouldPromptForApproval == false)
         }
     }
 
