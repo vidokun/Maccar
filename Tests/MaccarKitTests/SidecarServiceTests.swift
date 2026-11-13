@@ -8,6 +8,15 @@ import CMaccarBridge
 struct SidecarServiceTests {
     private static let sidecarDomain = "SidecarErrorDomain"
     private static let bridgeDomain = "com.maccar.sidecar"
+    /// How many racing `invalidate()` calls the token test fires.
+    private static let concurrentInvalidateAttempts = 16
+    /// Generous by design: this bounds a hung lock, not the scheduling latency of
+    /// the racing blocks. A tight bound turns a slow CI runner into a false failure.
+    private static let concurrentInvalidateWaitTimeout: DispatchTimeInterval = .seconds(30)
+
+    private static var concurrentInvalidateDeadline: DispatchTime {
+        DispatchTime.now() + concurrentInvalidateWaitTimeout
+    }
 
     private func makeError(_ domain: String, _ code: Int, _ message: String) -> NSError {
         NSError(domain: domain, code: code, userInfo: [NSLocalizedDescriptionKey: message])
@@ -354,15 +363,18 @@ struct SidecarServiceTests {
             let token = SidecarObserverToken {
                 invalidationCount.withLock { $0 += 1 }
             }
+            // A dedicated concurrent queue keeps the race isolated from the global
+            // pool, which the rest of this suite saturates in parallel.
+            let queue = DispatchQueue(label: "maccar.tests.observer-token-race", attributes: .concurrent)
             let group = DispatchGroup()
-            for _ in 0..<16 {
+            for _ in 0..<Self.concurrentInvalidateAttempts {
                 group.enter()
-                DispatchQueue.global().async {
+                queue.async {
                     token.invalidate()
                     group.leave()
                 }
             }
-            #expect(group.wait(timeout: .now() + 2.0) == .success)
+            #expect(group.wait(timeout: Self.concurrentInvalidateDeadline) == .success)
             token.invalidate()
         }
         #expect(invalidationCount.withLock { $0 } == 1)
