@@ -32,7 +32,7 @@ Usage: install.sh [OPTIONS]
 Install or update Maccar on macOS 14+ with SHA-256 and codesign verification.
 
 Options:
-  --version <tag>       Install a specific release version (e.g. 1.3.0 or v1.3.0)
+  --version <tag>       Install a specific release version (e.g. 1.4.0 or v1.4.0)
   --prefix <dir>        Target installation directory (default: /Applications)
   --manifest-url <url>  Override release manifest URL (must pass allowlist)
   --dry-run             Verify manifest, OS version, and target permissions only

@@ -2,7 +2,7 @@
 (function () {
   'use strict';
 
-  var FALLBACK_VERSION = '1.3.0';
+  var FALLBACK_VERSION = '1.4.0';
   var MANIFEST_PATH = './manifest.json';
   var RELEASE_API = 'https://api.github.com/repos/vidokun/Maccar/releases/latest';
   var REPO_URL = 'https://github.com/vidokun/Maccar';
