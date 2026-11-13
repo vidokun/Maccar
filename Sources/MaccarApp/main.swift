@@ -241,7 +241,10 @@ func handleDisconnect(args: [String]) {
     }
 }
 
+@MainActor
 func handleDaemon() {
+    requireSingleInstance()
+
     let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? defaultAppVersion
     MaccarLogger.shared.info("App", "Starting Maccar daemon v\(version).")
     print("Starting Maccar daemon v\(version)...")
@@ -261,8 +264,40 @@ func handleDaemon() {
     RunLoop.current.run()
 }
 
+/// Retained for the whole process lifetime: `SingleInstanceGuard` releases its
+/// kernel lock in `deinit`, so a local-only reference would silently void it.
+private var retainedInstanceGuard: SingleInstanceGuard?
+
+/// Ensures only one process ever runs a `DeviceWatcher`.
+///
+/// Two instances would each issue `connect()` into the same Sidecar session
+/// manager, which produces `-100` rejections and one stacked system alert per
+/// failed call. Scoped to the paths that start a watcher — never to `MaccarKit`
+/// itself — so the test runner and read-only CLI subcommands stay unaffected.
+@MainActor
+private func requireSingleInstance() {
+    let guardInstance = SingleInstanceGuard.makeApplicationGuard()
+    guard guardInstance.acquire() else {
+        activateRunningInstance()
+        MaccarLogger.shared.info("App", "Another Maccar instance already owns the device watcher; exiting this launch.")
+        _ = MaccarLogger.shared.flush(timeout: 1.0)
+        exit(0)
+    }
+    retainedInstanceGuard = guardInstance
+}
+
+@MainActor
+private func activateRunningInstance() {
+    let bundleIdentifier = Bundle.main.bundleIdentifier
+    let peers = NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier ?? "")
+    let existing = peers.first { $0.processIdentifier != ProcessInfo.processInfo.processIdentifier }
+    existing?.activate()
+}
+
 @MainActor
 func runMenuBarApp() {
+    requireSingleInstance()
+
     let app = NSApplication.shared
     app.setActivationPolicy(.accessory)
 
