@@ -39,6 +39,11 @@ Apple blocks **Sidecar without monitor** hardware, so a **Mac mini headless iPad
 
 ## Install
 
+> **No release has been published yet.** The paths below are the supported ones, but they
+> resolve only once a `v*` tag has run the release workflow. Until then `releases/latest/...`
+> returns 404 and the installer exits without installing anything. Build from source in the
+> meantime: `./maccar.sh build`.
+
 ### Option 1: One-Line Terminal Installer (Zero Xcode Tools Needed)
 
 Run the verified installer script in Terminal. It checks macOS 14+, verifies `SHA-256` and `codesign` integrity, and installs `/Applications/Maccar.app`:
@@ -125,6 +130,13 @@ Workflow **Sidecar tanpa monitor** untuk **Mac mini headless iPad display** lang
 - Update aplikasi langsung dari Menu Bar lewat tombol **Check for Updates...** atau cek log aktif di **Diagnostics & Logs...**.
 
 ### Dua Cara Pasang di macOS 14+
+
+#### Install
+
+> **Belum ada rilis yang dipublikasikan.** Kedua cara di bawah adalah jalur resmi, tetapi baru
+> berfungsi setelah tag `v*` menjalankan workflow rilis. Sampai saat itu `releases/latest/...`
+> mengembalikan 404 dan installer berhenti tanpa memasang apa pun. Sementara ini, build dari
+> source: `./maccar.sh build`.
 
 1. Lewat Terminal (otomatis cek `SHA-256` dan `codesign`, tanpa perlu Xcode):
 
