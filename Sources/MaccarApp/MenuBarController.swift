@@ -171,7 +171,7 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
             reachableDevices: cachedReachableDevices,
             autoConnect: settings.autoConnect,
             autoMirror: settings.autoMirror,
-            startAtLogin: settings.startAtLogin,
+            launchAtLogin: settings.launchAtLoginMenuItem,
             shortcutEnabled: settings.globalShortcutEnabled,
             shortcutLabel: hotKey.currentShortcutLabel,
             shortcutConflictLabel: conflictLabel,
@@ -188,7 +188,7 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
         reachableDevices: [String] = [],
         autoConnect: Bool,
         autoMirror: Bool,
-        startAtLogin: Bool,
+        launchAtLogin: LaunchAtLoginMenuItem,
         shortcutEnabled: Bool,
         shortcutLabel: String,
         shortcutConflictLabel: String? = nil,
@@ -211,7 +211,7 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
         addSettingsSection(
             autoConnect: autoConnect,
             autoMirror: autoMirror,
-            startAtLogin: startAtLogin,
+            launchAtLogin: launchAtLogin,
             shortcutEnabled: shortcutEnabled,
             shortcutLabel: shortcutLabel,
             shortcutConflictLabel: shortcutConflictLabel,
@@ -388,8 +388,14 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
 
     @objc func toggleLaunchAtLogin() {
         let settings = MaccarSettings.shared
-        settings.startAtLogin.toggle()
-        MaccarLogger.shared.info("MenuBar", "Launch at Login set to \(settings.startAtLogin).")
+        // Flip from the rendered state, not from `startAtLogin`: that getter reports the grant,
+        // so with approval pending it would read `false` and send this straight back into a
+        // second registration instead of turning the feature off.
+        settings.startAtLogin = !settings.launchAtLoginMenuItem.isOn
+        MaccarLogger.shared.info(
+            "MenuBar",
+            "Launch at Login intent set to \(settings.startAtLoginIntent) (macOS reports \(settings.loginItemStatus.rawValue))."
+        )
         if settings.loginItemStatus == .requiresApproval {
             showAlert(
                 title: "Approve Launch at Login",

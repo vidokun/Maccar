@@ -303,7 +303,13 @@ func runMenuBarApp() {
 
     let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? defaultAppVersion
     MaccarLogger.shared.info("App", "Maccar v\(version) Menu Bar application starting.")
+    // Runs before the menu is built, so the "Launch at Login" checkbox reflects a login item
+    // that was just reconciled rather than one from the previous session.
     MaccarSettings.shared.syncLoginItemOnLaunch()
+    MaccarLogger.shared.info(
+        "App",
+        "Launch at Login: intent \(MaccarSettings.shared.startAtLoginIntent), macOS reports \(MaccarSettings.shared.loginItemStatus.rawValue)."
+    )
 
     let preferredKey = MaccarSettings.shared.preferredResolution
     let initialRes = (preferredKey == "auto") ? DisplayResolution.ipadMiniComfortable : DisplayResolution.from(key: preferredKey)

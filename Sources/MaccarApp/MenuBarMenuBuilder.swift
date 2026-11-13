@@ -93,7 +93,7 @@ extension MenuBarController {
     func addSettingsSection(
         autoConnect: Bool,
         autoMirror: Bool,
-        startAtLogin: Bool,
+        launchAtLogin: LaunchAtLoginMenuItem,
         shortcutEnabled: Bool,
         shortcutLabel: String,
         shortcutConflictLabel: String?,
@@ -101,7 +101,7 @@ extension MenuBarController {
     ) {
         menu.addItem(makeItem("Auto-Connect on USB", action: #selector(toggleAutoConnect), isOn: autoConnect))
         menu.addItem(makeItem("Auto-Mirroring", action: #selector(toggleAutoMirror), isOn: autoMirror))
-        menu.addItem(makeItem("Launch at Login", action: #selector(toggleLaunchAtLogin), isOn: startAtLogin))
+        menu.addItem(makeItem(launchAtLogin.title, action: #selector(toggleLaunchAtLogin), isOn: launchAtLogin.isOn))
         menu.addItem(makeItem("Global Shortcut (\(shortcutLabel))", action: #selector(toggleGlobalShortcut), isOn: shortcutEnabled))
         if let conflictLabel = shortcutConflictLabel {
             menu.addItem(makeDisabledItem("Shortcut \(conflictLabel) unavailable (claimed by another app)"))

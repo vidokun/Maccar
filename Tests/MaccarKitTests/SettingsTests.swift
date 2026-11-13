@@ -148,7 +148,7 @@ struct SettingsTests {
         }
     }
 
-    @Test("App bundle mode reflects status and calls register/unregister with opt-in persistence")
+    @Test("App bundle mode reflects status and calls register/unregister with intent persistence")
     func appBundleLoginItemReadWriteSync() throws {
         try withIsolatedDefaults { defaults in
             let manager = MockLoginItemManager(status: .notRegistered)
@@ -164,7 +164,6 @@ struct SettingsTests {
             #expect(settings.loginItemStatus == .enabled)
             #expect(settings.lastLoginItemError == nil)
             #expect(defaults.bool(forKey: "maccar_start_at_login") == true)
-            #expect(defaults.bool(forKey: "maccar_launch_at_login_opt_in") == true)
 
             settings.startAtLogin = false
             #expect(manager.unregisterCalls == 1)
@@ -172,7 +171,6 @@ struct SettingsTests {
             #expect(settings.loginItemStatus == .notRegistered)
             #expect(settings.lastLoginItemError == nil)
             #expect(defaults.bool(forKey: "maccar_start_at_login") == false)
-            #expect(defaults.bool(forKey: "maccar_launch_at_login_opt_in") == false)
         }
     }
 
@@ -188,47 +186,137 @@ struct SettingsTests {
             #expect(settings.loginItemStatus == .requiresApproval)
             #expect(settings.startAtLogin == false)
             #expect(defaults.bool(forKey: "maccar_start_at_login") == false)
+            // The user's intent survives even though the system has not granted it yet:
+            // approval can arrive later, in System Settings, without Maccar running.
+            #expect(defaults.object(forKey: "maccar_start_at_login_intent") as? Bool == true)
         }
     }
 
-    @Test("syncLoginItemOnLaunch registers only when opt-in is true and status is notRegistered")
-    func syncLoginItemOnLaunchRespectsOptIn() throws {
+    @Test("An absent intent key means the user never opted in, and launch sync honours that")
+    func syncLoginItemOnLaunchDoesNotRegisterWithoutIntent() throws {
         try withIsolatedDefaults { defaults in
-            let freshManager = MockLoginItemManager(status: .notRegistered)
-            let freshSettings = MaccarSettings(defaults: defaults, isAppBundle: true, loginItemManager: freshManager)
+            let manager = MockLoginItemManager(status: .notRegistered)
+            let settings = MaccarSettings(defaults: defaults, isAppBundle: true, loginItemManager: manager)
 
-            freshSettings.syncLoginItemOnLaunch()
-            #expect(freshManager.registerCalls == 0)
-            #expect(freshManager.unregisterCalls == 0)
-            #expect(freshSettings.loginItemStatus == .notRegistered)
-            #expect(freshSettings.startAtLogin == false)
+            settings.syncLoginItemOnLaunch()
+            #expect(manager.registerCalls == 0)
+            #expect(manager.unregisterCalls == 0)
+            #expect(settings.loginItemStatus == .notRegistered)
+            #expect(settings.startAtLogin == false)
+        }
+    }
+
+    @Test("Launch sync registers when the user's intent is present, even if the item is missing")
+    func syncLoginItemOnLaunchRegistersPersistedIntent() throws {
+        try withIsolatedDefaults { defaults in
+            // This is the D4 bug: intent was recorded but the login item was absent, so
+            // nothing registered and Maccar never started after a reboot.
+            defaults.set(true, forKey: "maccar_start_at_login_intent")
+            let manager = MockLoginItemManager(status: .notRegistered)
+            let settings = MaccarSettings(defaults: defaults, isAppBundle: true, loginItemManager: manager)
+
+            settings.syncLoginItemOnLaunch()
+            #expect(manager.registerCalls == 1)
+            #expect(settings.loginItemStatus == .enabled)
+            #expect(settings.startAtLogin == true)
+
+            // Idempotent: a second launch must not register again.
+            settings.syncLoginItemOnLaunch()
+            #expect(manager.registerCalls == 1)
+        }
+    }
+
+    @Test("Launch sync never overrides a login item awaiting approval")
+    func syncLoginItemOnLaunchLeavesRequiresApprovalAlone() throws {
+        try withIsolatedDefaults { defaults in
+            defaults.set(true, forKey: "maccar_start_at_login_intent")
+            let manager = MockLoginItemManager(status: .requiresApproval)
+            let settings = MaccarSettings(defaults: defaults, isAppBundle: true, loginItemManager: manager)
+
+            settings.syncLoginItemOnLaunch()
+            #expect(manager.registerCalls == 0)
+            #expect(settings.loginItemStatus == .requiresApproval)
+            #expect(settings.startAtLogin == false)
+            #expect(defaults.object(forKey: "maccar_start_at_login_intent") as? Bool == true)
+        }
+    }
+
+    @Test("A legacy start-at-login flag migrates to the intent key on launch sync")
+    func launchSyncMigratesLegacyOptInKey() throws {
+        try withIsolatedDefaults { defaults in
+            // Shipped builds wrote these two keys; the old opt-in key is the closest
+            // available record of what the user asked for.
+            defaults.set(true, forKey: "maccar_start_at_login")
+            defaults.set(true, forKey: "maccar_launch_at_login_opt_in")
+            let manager = MockLoginItemManager(status: .notRegistered)
+            let settings = MaccarSettings(defaults: defaults, isAppBundle: true, loginItemManager: manager)
+
+            settings.syncLoginItemOnLaunch()
+            #expect(manager.registerCalls == 1)
+            #expect(defaults.object(forKey: "maccar_start_at_login_intent") as? Bool == true)
+        }
+    }
+
+    @Test("The menu shows the user's intent, not the granted status, when approval is pending")
+    func menuItemReflectsIntentWhileAwaitingApproval() throws {
+        try withIsolatedDefaults { defaults in
+            let manager = MockLoginItemManager(status: .notRegistered, statusAfterRegister: .requiresApproval)
+            let settings = MaccarSettings(defaults: defaults, isAppBundle: true, loginItemManager: manager)
+
+            settings.startAtLogin = true
+
+            // macOS granted nothing, but the user *did* opt in. Showing an unchecked item
+            // would invite a second press that re-registers instead of switching the feature
+            // off — the exact trap that made D4 look unfixable.
+            let item = settings.launchAtLoginMenuItem
+            #expect(item.isOn == true)
+            #expect(item.needsApproval == true)
+            #expect(item.title.contains("Approve"))
+
+            // Toggling from the menu must therefore turn the feature *off*, not re-register.
+            settings.startAtLogin = !item.isOn
+            #expect(manager.registerCalls == 1)
+            #expect(manager.unregisterCalls == 1)
+            #expect(settings.startAtLoginIntent == false)
+            #expect(settings.launchAtLoginMenuItem.isOn == false)
+        }
+    }
+
+    @Test("The menu item is checked only when the user opted in, and never claims a grant it lacks")
+    func menuItemStatesFollowIntentAndGrant() throws {
+        try withIsolatedDefaults { defaults in
+            let enabled = MaccarSettings(
+                defaults: defaults, isAppBundle: true, loginItemManager: MockLoginItemManager(status: .enabled)
+            )
+            defaults.set(true, forKey: "maccar_start_at_login_intent")
+            #expect(enabled.launchAtLoginMenuItem == LaunchAtLoginMenuItem(isOn: true, title: "Launch at Login", needsApproval: false))
         }
 
         try withIsolatedDefaults { defaults in
-            defaults.set(true, forKey: "maccar_launch_at_login_opt_in")
-            let optedInManager = MockLoginItemManager(status: .notRegistered)
-            let optedInSettings = MaccarSettings(defaults: defaults, isAppBundle: true, loginItemManager: optedInManager)
-
-            optedInSettings.syncLoginItemOnLaunch()
-            #expect(optedInManager.registerCalls == 1)
-            #expect(optedInSettings.loginItemStatus == .enabled)
-            #expect(optedInSettings.startAtLogin == true)
-            #expect(defaults.bool(forKey: "maccar_start_at_login") == true)
-
-            optedInSettings.syncLoginItemOnLaunch()
-            #expect(optedInManager.registerCalls == 1)
+            // Intent recorded, item missing: launch sync will register it, so the menu must
+            // already read as "on" rather than flickering off for one menu build.
+            defaults.set(true, forKey: "maccar_start_at_login_intent")
+            let pendingRegister = MaccarSettings(
+                defaults: defaults, isAppBundle: true, loginItemManager: MockLoginItemManager(status: .notRegistered)
+            )
+            #expect(pendingRegister.launchAtLoginMenuItem.isOn == true)
+            #expect(pendingRegister.launchAtLoginMenuItem.needsApproval == false)
         }
 
         try withIsolatedDefaults { defaults in
-            defaults.set(true, forKey: "maccar_launch_at_login_opt_in")
-            let approvalManager = MockLoginItemManager(status: .requiresApproval)
-            let approvalSettings = MaccarSettings(defaults: defaults, isAppBundle: true, loginItemManager: approvalManager)
+            let untouched = MaccarSettings(
+                defaults: defaults, isAppBundle: true, loginItemManager: MockLoginItemManager(status: .notRegistered)
+            )
+            #expect(untouched.launchAtLoginMenuItem == LaunchAtLoginMenuItem(isOn: false, title: "Launch at Login", needsApproval: false))
+        }
 
-            approvalSettings.syncLoginItemOnLaunch()
-            #expect(approvalManager.registerCalls == 0)
-            #expect(approvalSettings.loginItemStatus == .requiresApproval)
-            #expect(approvalSettings.startAtLogin == false)
-            #expect(defaults.bool(forKey: "maccar_start_at_login") == false)
+        try withIsolatedDefaults { defaults in
+            // The CLI has no login item at all and must never render an actionable toggle.
+            defaults.set(true, forKey: "maccar_start_at_login_intent")
+            let cli = MaccarSettings(
+                defaults: defaults, isAppBundle: false, loginItemManager: MockLoginItemManager(status: .notRegistered)
+            )
+            #expect(cli.launchAtLoginMenuItem.isOn == false)
         }
     }
 
