@@ -53,6 +53,10 @@ public final class DeviceWatcher: @unchecked Sendable {
     internal let settings: any SettingsProviding
     /// Physical presence, authoritative over Sidecar's paired-device list. See D6c.
     internal let usbPresence: any USBDevicePresenceChecking
+    /// Multi-device registry (Wave 3). Optional: when absent, the legacy single-name setting is
+    /// used, which keeps the existing tests and any pre-registry state working unchanged.
+    internal let registryStorage: DeviceRegistry?
+    internal let registryStore: DeviceRegistryStore?
     private let dispatchesReconnectTicks: Bool
     private let registersSystemObservers: Bool
     private let usbAttachMonitorFactory: (@Sendable (DispatchQueue, @escaping @Sendable () -> Void) -> (any USBAttachMonitoring)?)?
@@ -87,6 +91,8 @@ public final class DeviceWatcher: @unchecked Sendable {
         mirrorManager: any DisplayMirroring = DisplayMirrorManager.shared,
         settings: any SettingsProviding = MaccarSettings.shared,
         usbPresence: any USBDevicePresenceChecking = SystemUSBDevicePresence(),
+        registry: DeviceRegistry? = nil,
+        registryStore: DeviceRegistryStore? = nil,
         dispatchesReconnectTicks: Bool = true, registersSystemObservers: Bool = true,
         usbAttachMonitorFactory: (@Sendable (DispatchQueue, @escaping @Sendable () -> Void) -> (any USBAttachMonitoring)?)? = nil,
         now: @escaping @Sendable () -> Date = { Date() },
@@ -95,6 +101,8 @@ public final class DeviceWatcher: @unchecked Sendable {
         self.sidecar = sidecar; self.virtualDisplay = virtualDisplay
         self.mirrorManager = mirrorManager; self.settings = settings
         self.usbPresence = usbPresence
+        self.registryStorage = registry
+        self.registryStore = registryStore
         self.dispatchesReconnectTicks = dispatchesReconnectTicks
         self.registersSystemObservers = registersSystemObservers
         self.usbAttachMonitorFactory = usbAttachMonitorFactory
@@ -320,9 +328,35 @@ public final class DeviceWatcher: @unchecked Sendable {
         activeTimer?.cancel()
     }
 
+    /// The name of the device to connect to.
+    ///
+    /// Name-based for now, because `SidecarService.connect` still takes a name. The registry's
+    /// identifier is the authoritative selection (Wave 3.1); this resolves *that* selection to a
+    /// current name, so a rename between launches cannot silently point at a different iPad.
+    /// When the selected device is not currently reported by Sidecar, the stored name is used as
+    /// a last resort so a sleeping iPad still gets waited for rather than being forgotten.
     internal func resolvedTargetName() -> String? {
+        if let active = registry?.activeDevice {
+            if let live = (try? sidecar.reachableDevicesWithIdentity())?.first(where: { $0.identifier == active.identifier }) {
+                return live.name
+            }
+            let stored = active.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !stored.isEmpty { return stored }
+        }
         guard let raw = settings.registeredDeviceName?.trimmingCharacters(in: .whitespacesAndNewlines), !raw.isEmpty else { return nil }
         return raw
+    }
+
+    /// The device registry, when one has been supplied. Wave 3 uses this for targeting; the
+    /// legacy `settings.registeredDeviceName` path still applies when it is absent.
+    internal var registry: DeviceRegistry? { registryStorage }
+
+    /// Publishes the registry's current device list so the menu can render it.
+    internal func refreshRegisteredDevices() {
+        guard let registry else { return }
+        guard let devices = try? sidecar.reachableDevicesWithIdentity() else { return }
+        for device in devices { registry.register(device) }
+        registryStore?.save(devices: registry.devices, activeIdentifier: registry.activeDevice?.identifier)
     }
 
     internal func updateStatus(_ newStatus: DeviceWatcherStatus) {

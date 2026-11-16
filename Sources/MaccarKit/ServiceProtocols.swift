@@ -37,8 +37,13 @@ public protocol USBDevicePresenceChecking: Sendable {
     func isIPadAttached() -> Bool
 }
 
-public protocol SidecarControlling: AnyObject, Sendable {    var isSupported: Bool { get }
+public protocol SidecarControlling: AnyObject, Sendable {
+    var isSupported: Bool { get }
     func reachableDevices() throws -> [String]
+    /// Devices with their stable identifiers (Wave 3). Name-based accessors remain for existing
+    /// call sites; anything that identifies a device across sessions uses these.
+    func reachableDevicesWithIdentity() throws -> [SidecarDevice]
+    func connectedDevicesWithIdentity() -> [SidecarDevice]
     func connectedDevices() -> [String]
     func isDeviceConnected(deviceName: String) -> Bool
     func connect(deviceName: String, wired: Bool) throws

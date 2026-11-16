@@ -11,6 +11,26 @@ NSArray<NSString *> *SidecarCoreGetReachableDeviceNames(NSError * _Nullable * _N
 NSArray<NSString *> *SidecarCoreGetConnectedDeviceNames(void);
 BOOL SidecarCoreIsDeviceConnected(NSString *deviceName);
 
+/// One entry per device Sidecar knows about, keyed by "identifier", "name" and "model".
+///
+/// Sidecar exposes a stable `identifier` (an NSUUID) alongside a user-visible `name`. Names are
+/// neither unique nor stable — they are editable on the iPad — so anything that must identify a
+/// device across sessions keys on `identifier`. `identifier` was verified stable across a
+/// physical unplug/replug on 2026-11-16 (PRD U4). `name` is retained for display only.
+typedef NSDictionary<NSString *, id> *SidecarDeviceInfoDictionary;
+
+/// Every device Sidecar has **paired** with.
+///
+/// Not a presence list: a paired device stays here while its cable is out. Use
+/// `SidecarCoreIsIPadAttached` for physical presence.
+NSArray<SidecarDeviceInfoDictionary> *SidecarCoreGetReachableDevices(NSError * _Nullable * _Nullable outError);
+
+/// The devices Sidecar currently reports as connected, in the same shape.
+NSArray<SidecarDeviceInfoDictionary> *SidecarCoreGetConnectedDevices(void);
+
+/// Whether an iPad is attached over USB right now, independent of what Sidecar has paired.
+BOOL SidecarCoreIsIPadAttached(void);
+
 BOOL SidecarCoreConnectDevice(
     NSString *deviceName,
     BOOL wiredOnly,

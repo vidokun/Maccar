@@ -45,6 +45,15 @@ final class MockSidecarService: SidecarControlling, @unchecked Sendable {
 
     var isSupported: Bool { get { lock.withLock { $0.isSupported } } set { lock.withLock { $0.isSupported = newValue } } }
     var reachableDevicesResult: Result<[String], Error> { get { lock.withLock { $0.reachableDevicesResult } } set { lock.withLock { $0.reachableDevicesResult = newValue } } }
+
+    /// Optional explicit identity list. When unset, identifiers are synthesised from the names so
+    /// the many tests that only care about names stay unchanged.
+    private let identityLock = OSAllocatedUnfairLock<Result<[SidecarDevice], Error>?>(initialState: nil)
+    var reachableDevicesWithIdentityResult: Result<[SidecarDevice], Error>? {
+        get { identityLock.withLock { $0 } }
+        set { identityLock.withLock { $0 = newValue } }
+    }
+    private var identityResult: Result<[SidecarDevice], Error>? { reachableDevicesWithIdentityResult }
     var connectedDeviceNames: [String] { get { lock.withLock { $0.connectedDeviceNames } } set { lock.withLock { $0.connectedDeviceNames = newValue } } }
     var connectError: Error? { get { lock.withLock { $0.connectError } } set { lock.withLock { $0.connectError = newValue } } }
     var disconnectError: Error? { get { lock.withLock { $0.disconnectError } } set { lock.withLock { $0.disconnectError = newValue } } }
@@ -56,6 +65,20 @@ final class MockSidecarService: SidecarControlling, @unchecked Sendable {
     var operationTimeline: [String] { lock.withLock { $0.operationTimeline } }
 
     func reachableDevices() throws -> [String] { try lock.withLock { try $0.reachableDevicesResult.get() } }
+
+    /// Identity is derived from the name-based result so existing tests keep working: each name
+    /// gets a stable synthetic identifier. Tests that care about two iPads sharing a name set
+    /// `reachableDevicesWithIdentityResult` directly.
+    func reachableDevicesWithIdentity() throws -> [SidecarDevice] {
+        if let explicit = identityResult { return try explicit.get() }
+        return try reachableDevices().map {
+            SidecarDevice(identifier: "id:\($0)", name: $0, model: "")
+        }
+    }
+
+    func connectedDevicesWithIdentity() -> [SidecarDevice] {
+        connectedDeviceNames.map { SidecarDevice(identifier: "id:\($0)", name: $0, model: "") }
+    }
     func connectedDevices() -> [String] { lock.withLock { $0.connectedDeviceNames } }
     func isDeviceConnected(deviceName: String) -> Bool {
         lock.withLock { $0.connectedDeviceNames.contains { $0.caseInsensitiveCompare(deviceName) == .orderedSame } }

@@ -14,6 +14,10 @@ public final class SidecarService: @unchecked Sendable {
     internal struct Bridge: Sendable {
         let isAvailable: @Sendable () -> Bool
         let reachableDeviceNames: @Sendable () throws -> [String]
+        /// Devices with their stable identifiers. `reachableDeviceNames` is retained for the
+        /// existing name-keyed call sites; anything that must identify a device uses this.
+        let reachableDevices: @Sendable () throws -> [SidecarDevice]
+        let connectedDevicesWithIdentity: @Sendable () -> [SidecarDevice]
         let connectedDeviceNames: @Sendable () -> [String]
         let isDeviceConnected: @Sendable (String) -> Bool
         let connectDevice: @Sendable (String, Bool) throws -> Void
@@ -27,6 +31,8 @@ public final class SidecarService: @unchecked Sendable {
         init(
             isAvailable: @escaping @Sendable () -> Bool,
             reachableDeviceNames: @escaping @Sendable () throws -> [String],
+            reachableDevices: @escaping @Sendable () throws -> [SidecarDevice],
+            connectedDevicesWithIdentity: @escaping @Sendable () -> [SidecarDevice],
             connectedDeviceNames: @escaping @Sendable () -> [String],
             isDeviceConnected: @escaping @Sendable (String) -> Bool,
             connectDevice: @escaping @Sendable (String, Bool) throws -> Void,
@@ -39,6 +45,8 @@ public final class SidecarService: @unchecked Sendable {
         ) {
             self.isAvailable = isAvailable
             self.reachableDeviceNames = reachableDeviceNames
+            self.reachableDevices = reachableDevices
+            self.connectedDevicesWithIdentity = connectedDevicesWithIdentity
             self.connectedDeviceNames = connectedDeviceNames
             self.isDeviceConnected = isDeviceConnected
             self.connectDevice = connectDevice
@@ -59,6 +67,15 @@ public final class SidecarService: @unchecked Sendable {
                     throw err
                 }
                 return devices
+            },
+            reachableDevices: {
+                var err: NSError?
+                let raw = SidecarCoreGetReachableDevices(&err)
+                if let err { throw err }
+                return raw.compactMap { SidecarDevice($0) }
+            },
+            connectedDevicesWithIdentity: {
+                SidecarCoreGetConnectedDevices().compactMap { SidecarDevice($0) }
             },
             connectedDeviceNames: { SidecarCoreGetConnectedDeviceNames() },
             isDeviceConnected: { SidecarCoreIsDeviceConnected($0) },
@@ -124,6 +141,16 @@ public final class SidecarService: @unchecked Sendable {
 
     public func reachableDevices() throws -> [String] {
         try bridge.reachableDeviceNames()
+    }
+
+    /// Devices Sidecar has paired with, carrying their stable identifiers.
+    public func reachableDevicesWithIdentity() throws -> [SidecarDevice] {
+        try bridge.reachableDevices()
+    }
+
+    /// Devices Sidecar currently reports as connected, with identifiers.
+    public func connectedDevicesWithIdentity() -> [SidecarDevice] {
+        bridge.connectedDevicesWithIdentity()
     }
 
     public func connectedDevices() -> [String] {

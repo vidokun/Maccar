@@ -2,6 +2,8 @@
 #import <dlfcn.h>
 #import <objc/runtime.h>
 #import <os/lock.h>
+#import <IOKit/IOKitLib.h>
+#import <IOKit/usb/IOUSBLib.h>
 
 static NSString * const kSidecarBridgeDomain = @"com.maccar.sidecar";
 static const int64_t kSidecarConnectTimeoutSeconds = 10;
@@ -105,6 +107,38 @@ static NSArray<NSString *> *ExtractDeviceNames(id rawDevices) {
     return [names copy];
 }
 
+/// Serialises a device's `identifier`, which Sidecar exposes as an NSUUID.
+///
+/// Everything that identifies a device across sessions must key on this rather than `name`:
+/// names are not unique and are editable on the iPad. Returns nil when the selector is absent,
+/// so a future macOS that changes the shape degrades to "no stable identity" instead of
+/// silently collapsing two iPads into one.
+static NSString * _Nullable ExtractDeviceIdentifier(id device) {
+    id raw = InvokeZeroArgObject(device, @"identifier");
+    if ([raw isKindOfClass:[NSUUID class]]) { return [(NSUUID *)raw UUIDString]; }
+    if ([raw isKindOfClass:[NSString class]]) { return (NSString *)raw; }
+    return nil;
+}
+
+static NSArray<SidecarDeviceInfoDictionary> *ExtractDeviceInfos(id rawDevices) {
+    if (![rawDevices isKindOfClass:[NSArray class]]) { return @[]; }
+    NSMutableArray<SidecarDeviceInfoDictionary> *infos = [NSMutableArray array];
+    for (id dev in (NSArray *)rawDevices) {
+        NSString *identifier = ExtractDeviceIdentifier(dev);
+        id rawName = InvokeZeroArgObject(dev, @"name");
+        id rawModel = InvokeZeroArgObject(dev, @"model");
+        // A device without an identifier cannot be addressed reliably, so it is skipped rather
+        // than published under its name — that name could belong to a different iPad tomorrow.
+        if (!identifier) { continue; }
+        NSMutableDictionary *info = [NSMutableDictionary dictionary];
+        info[@"identifier"] = identifier;
+        info[@"name"] = [rawName isKindOfClass:[NSString class]] ? rawName : @"";
+        info[@"model"] = [rawModel isKindOfClass:[NSString class]] ? rawModel : @"";
+        [infos addObject:[info copy]];
+    }
+    return [infos copy];
+}
+
 static BOOL EnsureSidecarCoreLoadedUnlocked(NSError * _Nullable * _Nullable outError) {
     if (sSidecarHandle) { return YES; }
     sSidecarHandle = dlopen("/System/Library/PrivateFrameworks/SidecarCore.framework/SidecarCore", RTLD_NOW);
@@ -174,8 +208,24 @@ NSArray<NSString *> *SidecarCoreGetConnectedDeviceNames(void) {
     return ExtractDeviceNames(connected);
 }
 
-BOOL SidecarCoreIsDeviceConnected(NSString *deviceName) {
-    if (!deviceName || deviceName.length == 0) { return NO; }
+NSArray<SidecarDeviceInfoDictionary> *SidecarCoreGetReachableDevices(NSError * _Nullable * _Nullable outError) {
+    if (outError) { *outError = nil; }
+    os_unfair_lock_lock(&sBridgeLock);
+    id manager = GetSidecarDisplayManagerUnlocked(outError);
+    NSArray *devices = manager ? CopySelectorArrayUnlocked(manager, @"devices") : @[];
+    os_unfair_lock_unlock(&sBridgeLock);
+    return ExtractDeviceInfos(devices);
+}
+
+NSArray<SidecarDeviceInfoDictionary> *SidecarCoreGetConnectedDevices(void) {
+    os_unfair_lock_lock(&sBridgeLock);
+    id manager = GetSidecarDisplayManagerUnlocked(NULL);
+    NSArray *connected = manager ? CopySelectorArrayUnlocked(manager, @"connectedDevices") : @[];
+    os_unfair_lock_unlock(&sBridgeLock);
+    return ExtractDeviceInfos(connected);
+}
+
+BOOL SidecarCoreIsDeviceConnected(NSString *deviceName) {    if (!deviceName || deviceName.length == 0) { return NO; }
     NSString *target = deviceName.lowercaseString;
     for (NSString *name in SidecarCoreGetConnectedDeviceNames()) {
         if ([name.lowercaseString isEqualToString:target]) { return YES; }
@@ -396,4 +446,45 @@ void SidecarCoreStopObservingNotifications(uint64_t observerToken) {
     if (!observers) { return; }
     NSNotificationCenter *center = [NSNotificationCenter defaultCenter];
     for (id<NSObject> obs in observers) { [center removeObserver:obs]; }
+}
+
+/// Whether an iPad is physically attached over USB.
+///
+/// Deliberately unfiltered: adding an `idVendor` property match to the `IOServiceMatching`
+/// dictionary matches zero services on macOS 14/15 (measured 2026-11-16), so the iPad test is
+/// applied per node instead. Fails closed — a query error reports "not attached" so the caller
+/// suppresses a connect rather than issuing one for a device that may not be there.
+BOOL SidecarCoreIsIPadAttached(void) {
+    CFMutableDictionaryRef matching = IOServiceMatching("IOUSBHostDevice");
+    if (!matching) { return NO; }
+    io_iterator_t iterator = 0;
+    if (IOServiceGetMatchingServices(kIOMainPortDefault, matching, &iterator) != KERN_SUCCESS) {
+        return NO;
+    }
+    BOOL found = NO;
+    io_service_t service = 0;
+    while ((service = IOIteratorNext(iterator)) != 0) {
+        io_name_t nameBuffer = {0};
+        NSString *rawName = nil;
+        CFTypeRef product = IORegistryEntryCreateCFProperty(
+            service, CFSTR("USB Product Name"), kCFAllocatorDefault, 0);
+        if (product) {
+            if (CFGetTypeID(product) == CFStringGetTypeID()) {
+                rawName = (__bridge_transfer NSString *)product;
+            } else {
+                CFRelease(product);
+            }
+        }
+        if (!rawName && IORegistryEntryGetName(service, nameBuffer) == KERN_SUCCESS) {
+            rawName = [NSString stringWithUTF8String:nameBuffer];
+        }
+        if (rawName && [rawName rangeOfString:@"ipad" options:NSCaseInsensitiveSearch].location != NSNotFound) {
+            found = YES;
+            IOObjectRelease(service);
+            break;
+        }
+        IOObjectRelease(service);
+    }
+    IOObjectRelease(iterator);
+    return found;
 }

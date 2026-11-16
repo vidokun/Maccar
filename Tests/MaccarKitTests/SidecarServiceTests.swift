@@ -25,6 +25,10 @@ struct SidecarServiceTests {
     private func makeBridge(
         isAvailable: @escaping @Sendable () -> Bool = { true },
         reachableDeviceNames: @escaping @Sendable () throws -> [String] = { ["VPad"] },
+        reachableDevices: @escaping @Sendable () throws -> [SidecarDevice] = {
+            [SidecarDevice(identifier: "UUID-VPad", name: "VPad", model: "iPad16,1")]
+        },
+        connectedDevicesWithIdentity: @escaping @Sendable () -> [SidecarDevice] = { [] },
         connectedDeviceNames: @escaping @Sendable () -> [String] = { [] },
         isDeviceConnected: @escaping @Sendable (String) -> Bool = { _ in false },
         connectDevice: @escaping @Sendable (String, Bool) throws -> Void = { _, _ in },
@@ -38,6 +42,8 @@ struct SidecarServiceTests {
         SidecarService.Bridge(
             isAvailable: isAvailable,
             reachableDeviceNames: reachableDeviceNames,
+            reachableDevices: reachableDevices,
+            connectedDevicesWithIdentity: connectedDevicesWithIdentity,
             connectedDeviceNames: connectedDeviceNames,
             isDeviceConnected: isDeviceConnected,
             connectDevice: connectDevice,
