@@ -39,10 +39,9 @@ Apple blocks **Sidecar without monitor** hardware, so a **Mac mini headless iPad
 
 ## Install
 
-> **No release has been published yet.** The paths below are the supported ones, but they
-> resolve only once a `v*` tag has run the release workflow. Until then `releases/latest/...`
-> returns 404 and the installer exits without installing anything. Build from source in the
-> meantime: `./maccar.sh build`.
+> Downloads are signed with a Developer ID certificate and notarized by Apple, so macOS
+> opens the app on double-click without the "cannot be verified" warning. Each release ships a
+> `SHA-256` checksum and a manifest that the installer verifies before installing anything.
 
 ### Option 1: One-Line Terminal Installer (Zero Xcode Tools Needed)
 
@@ -133,10 +132,9 @@ Workflow **Sidecar tanpa monitor** untuk **Mac mini headless iPad display** lang
 
 #### Install
 
-> **Belum ada rilis yang dipublikasikan.** Kedua cara di bawah adalah jalur resmi, tetapi baru
-> berfungsi setelah tag `v*` menjalankan workflow rilis. Sampai saat itu `releases/latest/...`
-> mengembalikan 404 dan installer berhenti tanpa memasang apa pun. Sementara ini, build dari
-> source: `./maccar.sh build`.
+> Unduhan sudah ditandatangani sertifikat Developer ID dan dinotarisasi Apple, jadi macOS
+> membuka aplikasinya dengan klik dua kali tanpa peringatan "tidak dapat diverifikasi". Setiap
+> rilis menyertakan checksum `SHA-256` dan manifest yang diverifikasi installer sebelum memasang.
 
 1. Lewat Terminal (otomatis cek `SHA-256` dan `codesign`, tanpa perlu Xcode):
 
