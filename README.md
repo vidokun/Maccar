@@ -55,7 +55,7 @@ curl -fsSL https://raw.githubusercontent.com/vidokun/Maccar/main/install.sh | sh
 You can also inspect before installing with `--dry-run`, pin a release with `--version`, or pick another folder with `--prefix`:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/vidokun/Maccar/main/install.sh | sh -s -- --version 1.4.1 --prefix ~/Applications --dry-run
+curl -fsSL https://raw.githubusercontent.com/vidokun/Maccar/main/install.sh | sh -s -- --version 1.4.2 --prefix ~/Applications --dry-run
 ```
 
 ### Option 2: Download DMG & Auto-Update

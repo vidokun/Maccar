@@ -64,7 +64,7 @@ enum ScreenshotExporter {
 
     /// The debug binary has no `Info.plist`, so the live menu reports a bare version. The
     /// published screenshot is documentation for the packaged app, so it must show the same
-    /// `Version 1.4.1 (build 7)` line a user sees — read from the plist the bundle is built from.
+    /// `Version 1.4.2 (build 8)` line a user sees — read from the plist the bundle is built from.
     private static func applyPackagedVersionLine(to controller: MenuBarController) {
         guard let packaged = packagedVersion(),
               let versionItem = controller.previewMenu.items.last(where: { $0.title.hasPrefix("Version ") })
@@ -253,7 +253,7 @@ enum ScreenshotExporter {
     private static func sampleLogEntries() -> [LogEntry] {
         let base = Date(timeIntervalSince1970: 1_763_000_000)
         // The fixtures name a version, so they read from the plist too: a screenshot that
-        // announces v1.4.0 next to a `Version 1.4.1` menu is a contradiction in one image.
+        // announces v1.4.0 next to a `Version 1.4.2` menu is a contradiction in one image.
         let version = packagedVersion()?.version ?? MaccarAppInfo.shortVersion
         return [
             ("App", "Maccar v\(version) Menu Bar application starting.", LogLevel.info),

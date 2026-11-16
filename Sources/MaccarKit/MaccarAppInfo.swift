@@ -7,7 +7,7 @@ import Foundation
 public enum MaccarAppInfo {
     /// Used when `Bundle.main` carries no version — true for the debug binary run from
     /// `.build/debug`, which has no `Info.plist`.
-    public static let fallbackVersion = "1.4.1"
+    public static let fallbackVersion = "1.4.2"
 
     public static var shortVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? fallbackVersion
@@ -19,7 +19,7 @@ public enum MaccarAppInfo {
         Bundle.main.infoDictionary?["CFBundleVersion"] as? String
     }
 
-    /// `"1.4.1 (build 7)"` in a bundle, plain `"1.4.1"` otherwise.
+    /// `"1.4.2 (build 8)"` in a bundle, plain `"1.4.2"` otherwise.
     public static var displayString: String {
         guard let buildNumber else { return shortVersion }
         return "\(shortVersion) (build \(buildNumber))"

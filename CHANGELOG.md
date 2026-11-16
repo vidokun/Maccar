@@ -2,6 +2,23 @@
 
 All notable changes to **Maccar** are documented in this file.
 
+## [v1.4.2] - 2026-11-16
+### Added
+- **Multiple iPads are now supported properly.** Devices are identified by Sidecar's stable `identifier` instead of their name, so two iPads called "VPad" are distinct, renaming one on the device no longer retargets the app, and **Forget** genuinely removes it. A registry in the Menu Bar lists every registered iPad, marks the active one, and shows `iPad16,1`-style model suffixes when two share a name. *(`DeviceRegistry`, `DeviceRegistryStore`, `SidecarDevice`)*
+- **A newly detected iPad is offered for registration.** Plug in an iPad Maccar has not seen and it asks once — **Register** or **Not Now**. Declining is remembered for the session only, so a later replug may ask again. Registering issues no `connect()`, so this prompt cannot raise an Apple popup.
+- **Switching iPads is an explicit Menu Bar action.** Deliberately not automatic on attach: every `connect()` can raise a Sidecar popup, so auto-switching between two iPads would produce a stream of them.
+
+### Fixed
+- **Automatic reconnection after a replug never worked.** The USB attach monitor filtered its `IOServiceMatching` dictionary on `idVendor`, which matches no services on macOS 14/15 — the notification never fired, and the log contains no monitor line at all across 2,401 entries. The filter is gone and the iPad check happens per service instead. Replug is detected for the first time.
+- **One transient connect failure permanently disabled auto-connect.** A transport-settling error (`The device was disconnected`, code `-101`, and `The device was not found`, `-200`) now gets a single bounded retry instead of latching the gate shut until a manual press. Real refusals (`-100`, `-302`) still stop immediately, preserving the zero-popup policy.
+- **No more popups for an unplugged iPad.** Sidecar lists devices it has *paired with*, not devices currently attached, so Maccar called `connect()` for an iPad whose cable was already out. A physical USB presence check now gates every connect and fails closed.
+- **Unregister actually forgets the device.** It previously cleared only the typed name and left the registry entry behind, so the action achieved nothing and the iPad could never be offered for registration again.
+- **The new-iPad prompt could never appear.** It was evaluated only when the reachable-device list changed — in practice while a connect was in flight, when it deliberately stands down. It is now also evaluated on every watcher status transition.
+- The menu no longer reports "Auto-retry paused" while a retry is still owed.
+
+### Known limitation
+- **The first automatic connect after a replug still fails once**, then succeeds about 8 seconds later. Sidecar restarts `SidecarDisplayAgent` on every replug and refuses connections until it is ready; five explanations were tested on hardware and four were wrong. Attempts at 0.8, 1.9, 6.7, 8.5, 11 and 23 seconds all failed, with or without a teardown, and with the agent already running. One popup per replug is therefore expected. The app recovers on its own without a manual press, which is what matters for a headless Mac.
+
 ## [v1.4.1] - 2026-11-13
 ### Changed
 - **The command-line interface is gone; Maccar is a Menu Bar app.** The `status`, `virtual`, `mirror`, `connect`, `disconnect`, and `daemon` subcommands were removed along with their handlers. Two interfaces over one `DeviceWatcher` meant every fix had to hold in both, and the CLI could not reach the app's live state anyway — it started a second process with its own virtual display, which is why its own output said `No active virtual display in CLI process`. `maccar`, `--version`, and `help` remain.
