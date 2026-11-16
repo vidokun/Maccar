@@ -50,15 +50,55 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# Attaches the notarization ticket, retrying on transient failure.
+#
+# `stapler staple` downloads the ticket from Apple, so a flaky runner network can fail it. A
+# retry is safe: stapling the same ticket twice is a no-op.
+staple_ticket() {
+    local target="$1" attempt
+    for attempt in 1 2 3; do
+        if xcrun stapler staple "$target"; then return 0; fi
+        echo "    stapler staple failed (attempt $attempt/3); retrying in 5s..." >&2
+        sleep 5
+    done
+    echo "Error: could not staple a notarization ticket to $target after 3 attempts." >&2
+    return 1
+}
+
+# Confirms the ticket is present, without failing on a network blip.
+#
+# `stapler validate` contacts api.apple-cloudkit.com to re-check the ticket. On a runner whose
+# connection drops mid-release that produces `NSURLErrorDomain -1005` / `Error 68` even though
+# the staple above succeeded — which is exactly how the v1.4.2 release failed once. Retrying
+# first distinguishes a blip from a real problem; if the network stays down, the local Gatekeeper
+# assessment is the authoritative offline check, so we fall back to it instead of failing the
+# release over a verification the user's Mac would pass anyway.
+verify_stapled() {
+    local target="$1" attempt
+    for attempt in 1 2 3; do
+        if xcrun stapler validate "$target"; then return 0; fi
+        echo "    stapler validate failed (attempt $attempt/3); retrying in 5s..." >&2
+        sleep 5
+    done
+
+    echo "    stapler validate could not reach Apple; falling back to the local Gatekeeper assessment." >&2
+    if spctl --assess --type open --context context:primary-signature -vv "$target" 2>&1 | tee /dev/stderr | grep -q ': accepted'; then
+        echo "    Gatekeeper accepts the ticket locally, so the staple is present." >&2
+        return 0
+    fi
+    echo "Error: the ticket could not be validated locally either." >&2
+    return 1
+}
+
 if [ -n "$NOTARY_PROFILE" ]; then
     echo "==> Zipping Maccar.app for Apple notarization..."
     rm -f "$NOTARY_TMP_ZIP"
     ditto -c -k --sequesterRsrc --keepParent "$APP_DIR" "$NOTARY_TMP_ZIP"
     echo "==> Submitting Maccar.app for Apple notarization..."
     xcrun notarytool submit "$NOTARY_TMP_ZIP" --keychain-profile "$NOTARY_PROFILE" --wait
-    echo "==> Stapling and validating Maccar.app notarization ticket..."
-    xcrun stapler staple "$APP_DIR"
-    xcrun stapler validate "$APP_DIR"
+    echo "==> Stapling Maccar.app notarization ticket..."
+    staple_ticket "$APP_DIR"
+    verify_stapled "$APP_DIR"
     rm -f "$NOTARY_TMP_ZIP"
 fi
 
@@ -95,9 +135,9 @@ fi
 if [ -n "$NOTARY_PROFILE" ]; then
     echo "==> Submitting DMG for Apple notarization..."
     xcrun notarytool submit "$OUTPUT_VERSIONED_DMG" --keychain-profile "$NOTARY_PROFILE" --wait
-    echo "==> Stapling and validating DMG notarization ticket..."
-    xcrun stapler staple "$OUTPUT_VERSIONED_DMG"
-    xcrun stapler validate "$OUTPUT_VERSIONED_DMG"
+    echo "==> Stapling DMG notarization ticket..."
+    staple_ticket "$OUTPUT_VERSIONED_DMG"
+    verify_stapled "$OUTPUT_VERSIONED_DMG"
     echo "==> Verifying Gatekeeper acceptance..."
     spctl --assess --type open --context context:primary-signature -vv "$OUTPUT_VERSIONED_DMG"
 fi
