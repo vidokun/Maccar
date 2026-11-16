@@ -15,6 +15,12 @@ public final class DeviceWatcher: @unchecked Sendable {
         static let postDisconnectSettleSeconds: TimeInterval = 0.4
         static let displayReadyTimeoutSeconds: TimeInterval = 3.0
         static let displayReadyStepSeconds: TimeInterval = 0.15
+        /// Let Sidecar settle after an active session ends before the next automatic
+        /// connect. See `DeviceWatcherBackoff.sessionEndSettleSeconds` for the field evidence.
+        static let sessionEndSettleSeconds: TimeInterval = DeviceWatcherBackoff.sessionEndSettleSeconds
+        /// Let Sidecar become connectable after a USB attach. See
+        /// `DeviceWatcherBackoff.usbAttachSettleSeconds` for the measured timings.
+        static let usbAttachSettleSeconds: TimeInterval = DeviceWatcherBackoff.usbAttachSettleSeconds
     }
 
     internal struct State: Sendable {
@@ -45,6 +51,8 @@ public final class DeviceWatcher: @unchecked Sendable {
     internal let virtualDisplay: any VirtualDisplayControlling
     internal let mirrorManager: any DisplayMirroring
     internal let settings: any SettingsProviding
+    /// Physical presence, authoritative over Sidecar's paired-device list. See D6c.
+    internal let usbPresence: any USBDevicePresenceChecking
     private let dispatchesReconnectTicks: Bool
     private let registersSystemObservers: Bool
     private let usbAttachMonitorFactory: (@Sendable (DispatchQueue, @escaping @Sendable () -> Void) -> (any USBAttachMonitoring)?)?
@@ -78,6 +86,7 @@ public final class DeviceWatcher: @unchecked Sendable {
         virtualDisplay: any VirtualDisplayControlling = VirtualDisplayService.shared,
         mirrorManager: any DisplayMirroring = DisplayMirrorManager.shared,
         settings: any SettingsProviding = MaccarSettings.shared,
+        usbPresence: any USBDevicePresenceChecking = SystemUSBDevicePresence(),
         dispatchesReconnectTicks: Bool = true, registersSystemObservers: Bool = true,
         usbAttachMonitorFactory: (@Sendable (DispatchQueue, @escaping @Sendable () -> Void) -> (any USBAttachMonitoring)?)? = nil,
         now: @escaping @Sendable () -> Date = { Date() },
@@ -85,6 +94,7 @@ public final class DeviceWatcher: @unchecked Sendable {
     ) {
         self.sidecar = sidecar; self.virtualDisplay = virtualDisplay
         self.mirrorManager = mirrorManager; self.settings = settings
+        self.usbPresence = usbPresence
         self.dispatchesReconnectTicks = dispatchesReconnectTicks
         self.registersSystemObservers = registersSystemObservers
         self.usbAttachMonitorFactory = usbAttachMonitorFactory
@@ -247,6 +257,10 @@ public final class DeviceWatcher: @unchecked Sendable {
         let activeTarget = resolvedTargetName()
         let result = stateLock.withLock { state -> (status: DeviceWatcherStatus?, callback: (@Sendable (DeviceWatcherStatus) -> Void)?, shouldTick: Bool, isHeld: Bool, isStopped: Bool) in
             state.backoff.resetForUSBAttach(); state.consecutiveDetachMisses = 0
+            // D6d: Sidecar is not ready the instant the USB node appears — attempts 0.8 s and
+            // 1.9 s after attach both failed on hardware, while the one at 6.5 s succeeded.
+            // Defer the first attempt rather than letting it raise a popup for nothing.
+            state.backoff.deferNextAutoConnect(by: Timing.usbAttachSettleSeconds, from: now())
             let shouldTick = dispatchesReconnectTicks && !state.isManualDisconnectHold && !state.isStopped
             guard !state.isStopped, case .autoRetryPaused = state.status else {
                 return (nil, nil, shouldTick, state.isManualDisconnectHold, state.isStopped)
@@ -356,6 +370,13 @@ public final class DeviceWatcher: @unchecked Sendable {
         if sidecar.isDeviceConnected(deviceName: target) { handleConnectedTick(for: target); return }
         if case .connected = status {
             MaccarLogger.shared.info("DeviceWatcher", "Active Sidecar session ended for '\(target)'; returning to waiting state.")
+            // D6b: the field log connected 120 ms after this line and failed 43 ms later with
+            // "The device was not found". Sidecar needs the device to settle; the manual path
+            // already waits (`postDisconnectSettleSeconds`), this automatic path waited for
+            // nothing — which made the first attempt after every replug a guaranteed failure.
+            // Deferring by the settle window turns that doomed call into a successful one and
+            // costs no extra popups, which a blanket retry would.
+            stateLock.withLock { $0.backoff.deferNextAutoConnect(by: Timing.sessionEndSettleSeconds, from: now()) }
             updateStatus(.waitingForDevice(targetName: target))
         }
         if stateLock.withLock({ $0.backoff.isAutoRetryPaused }) { handleAutoRetryPaused(for: target); return }
@@ -434,6 +455,24 @@ public final class DeviceWatcher: @unchecked Sendable {
     }
 
     private func attemptReachableConnect(for target: String, autoMirror: Bool) {
+        // D6c: Sidecar lists devices it has *paired with*, not devices that are plugged in.
+        // The field log on 2026-11-16 10:03 connected 3.5 s after the cable was pulled because
+        // `reachableDevices()` still contained the iPad; that call raised an Apple popup and
+        // failed. Physical presence is therefore checked first, and it fails closed.
+        guard usbPresence.isIPadAttached() else {
+            MaccarLogger.shared.debug("DeviceWatcher", "Skipping connect for '\(target)': no iPad is attached over USB.")
+            if !shouldAbortConnectAttempt(capturedGeneration: stateLock.withLock { $0.reconnectGeneration }) {
+                updateStatus(.waitingForDevice(targetName: target))
+            }
+            _ = fetchAndCacheReachableDevices()
+            return
+        }
+        // D6d: Sidecar needs ~19 s after a replug before it will accept a connection, and every
+        // attempt before that fails with `-101` and raises an Apple popup. Neither the paired
+        // device list nor the display-agent process is a usable readiness signal (measured: the
+        // agent was already running at 11.0 s and the connect still failed), so the attach itself
+        // is deferred in `notifyUSBDeviceAttached` by `usbAttachSettleSeconds` and this path
+        // simply connects once that has elapsed.
         let capturedGeneration = stateLock.withLock { $0.reconnectGeneration }
         let reachable: [String]
         do { reachable = try sidecar.reachableDevices(); cacheReachableDevices(reachable) } catch {
@@ -446,6 +485,17 @@ public final class DeviceWatcher: @unchecked Sendable {
         guard !shouldAbortConnectAttempt(capturedGeneration: capturedGeneration) else { return }
         updateStatus(.connecting(targetName: deviceToConnect))
         MaccarLogger.shared.info("DeviceWatcher", "Auto-connecting to registered iPad '\(deviceToConnect)'...")
+        // Do NOT tear down an existing session here.
+        //
+        // An earlier revision forced `teardownSessionBeforeReconnect` on this path, on the theory
+        // that Sidecar keeps a stale session after a replug. The field log proves the opposite:
+        // every automatic connect preceded by a `disconnect()` failed with `-101`, while the one
+        // that went straight to `connect()` succeeded on the first try at 9.4 s after attach
+        // (10:40:24, "Connecting" with no preceding "Disconnecting").
+        //
+        // The disconnect itself is what puts Sidecar into the state that rejects the following
+        // connect. The manual path only tears down when it is actually replacing a *live* session
+        // (`wasConnected`), which is a different situation from this one.
         executeConnectAndMirror(deviceName: deviceToConnect, autoMirror: autoMirror, capturedGeneration: capturedGeneration)
     }
 
@@ -454,12 +504,28 @@ public final class DeviceWatcher: @unchecked Sendable {
             MaccarLogger.shared.info("DeviceWatcher", "Ignoring connect error for '\(target)' after cancellation or manual hold."); return
         }
         let failureTime = now()
-        stateLock.withLock { state in
+        let nsError = error as NSError
+        // Diagnostic for D6b classification: the error *code* is what decides transient vs
+        // refusal, and it was never observable in the field log. Domain + code are safe to log.
+        MaccarLogger.shared.warning(
+            "DeviceWatcher",
+            "Connect failure detail for '\(target)': domain=\(nsError.domain) code=\(nsError.code) transient=\(DeviceWatcherBackoff.Tracker.isTransportSettlingError(error))"
+        )
+        let paused = stateLock.withLock { state -> Bool in
             state.consecutiveDetachMisses = 0
             _ = state.backoff.recordFailure(error: error, at: failureTime)
+            return state.backoff.isAutoRetryPaused
         }
-        // DD-6: any failed connect() already raised a Sidecar popup, so this is the last
-        // automatic attempt. It stays suppressed until a replug or a manual reconnect.
+        guard paused else {
+            // A transport-settling failure (the device is present but still coming up) is
+            // worth the bounded retry this failure just spent. Showing the paused status
+            // would be a lie the menu renders, and the next tick retries on its own.
+            MaccarLogger.shared.warning("DeviceWatcher", "Connect failed for '\(target)': \(error.localizedDescription). Retrying once after the device settles.")
+            updateStatus(.waitingForDevice(targetName: target))
+            return
+        }
+        // DD-6: the popup budget is spent. It stays suppressed until a replug or a manual
+        // reconnect re-arms it.
         MaccarLogger.shared.warning("DeviceWatcher", "Connect failed for '\(target)': \(error.localizedDescription). Auto-connect suppressed until USB replug or manual reconnect.")
         updateStatus(.autoRetryPaused(targetName: target))
     }

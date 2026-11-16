@@ -37,35 +37,63 @@ struct DeviceWatcherBackoffTests {
         let sidecarError = makeError(domain: "SidecarErrorDomain", code: -200)
         let maccarError = makeError(domain: "com.maccar.sidecar", code: -200)
 
-        // DD-6: the interval no longer paces anything — retries stop outright — so it stays
-        // at the constant rather than escalating.
+        // -200 is transport-settling, so it spends transient budget rather than latching.
+        // The interval is the short retry cadence while budget remains.
         for previous in 0...3 {
             let outcome = DeviceWatcherBackoff.Tracker.evaluateFailure(
                 error: previous.isMultiple(of: 2) ? sidecarError : maccarError,
-                previousNotFoundCount: previous
+                previousNotFoundCount: previous,
+                transientFailuresRemaining: DeviceWatcherBackoff.transientRetryBudget
             )
             #expect(outcome.consecutiveNotFoundCount == previous + 1)
-            #expect(outcome.interval == 20.0)
+            #expect(outcome.interval == DeviceWatcherBackoff.transientRetrySeconds)
+            #expect(!outcome.isAutoRetryPaused)
         }
 
-        #expect(DeviceWatcherBackoff.Tracker.evaluateFailure(error: sidecarError, previousNotFoundCount: 0)
-            == DeviceWatcherBackoff.FailureOutcome(interval: 20.0, consecutiveNotFoundCount: 1))
+        // Once the budget is gone, the same error latches at the non-escalating cadence.
+        let exhausted = DeviceWatcherBackoff.Tracker.evaluateFailure(
+            error: sidecarError, previousNotFoundCount: 0, transientFailuresRemaining: 0
+        )
+        #expect(exhausted == DeviceWatcherBackoff.FailureOutcome(
+            interval: DeviceWatcherBackoff.nonEscalatingFailureSeconds,
+            consecutiveNotFoundCount: 1,
+            isAutoRetryPaused: true
+        ))
     }
 
-    @Test("evaluateFailure treats a non-device-not-found error as a break in the -200 streak")
+    @Test("evaluateFailure treats a non-device-not-found refusal as a break in the -200 streak")
     func evaluateFailureResetsCountOnOtherErrors() {
-        // A timeout or transport error still produced a failed connect(), which still
-        // raised a popup, so it latches the gate just the same — but it is not a "-200 miss".
-        let otherErrors = [
-            makeError(domain: "SidecarErrorDomain", code: -201),
-            makeError(domain: "com.maccar.sidecar", code: -300),
-            makeError(domain: "NSCocoaErrorDomain", code: -200)
+        // Refusals (-300 / -302 / -100) still produced a failed connect(), so they latch
+        // immediately — but they are not a "-200 miss", so the streak resets.
+        let refusals = [
+            makeError(domain: "SidecarErrorDomain", code: -300),
+            makeError(domain: "com.maccar.sidecar", code: -302),
+            makeError(domain: "SidecarErrorDomain", code: -100)
         ]
 
-        for error in otherErrors {
-            #expect(DeviceWatcherBackoff.Tracker.evaluateFailure(error: error, previousNotFoundCount: 2)
-                == DeviceWatcherBackoff.FailureOutcome(interval: 20.0, consecutiveNotFoundCount: 0))
+        for error in refusals {
+            #expect(DeviceWatcherBackoff.Tracker.evaluateFailure(
+                error: error,
+                previousNotFoundCount: 2,
+                transientFailuresRemaining: DeviceWatcherBackoff.transientRetryBudget
+            ) == DeviceWatcherBackoff.FailureOutcome(
+                interval: DeviceWatcherBackoff.nonEscalatingFailureSeconds,
+                consecutiveNotFoundCount: 0,
+                isAutoRetryPaused: true
+            ))
         }
+
+        // A -200 from a foreign domain is not ours to interpret either: it latches and
+        // does not count as a Sidecar miss.
+        #expect(DeviceWatcherBackoff.Tracker.evaluateFailure(
+            error: makeError(domain: "NSCocoaErrorDomain", code: -200),
+            previousNotFoundCount: 2,
+            transientFailuresRemaining: DeviceWatcherBackoff.transientRetryBudget
+        ) == DeviceWatcherBackoff.FailureOutcome(
+            interval: DeviceWatcherBackoff.nonEscalatingFailureSeconds,
+            consecutiveNotFoundCount: 0,
+            isAutoRetryPaused: true
+        ))
     }
 
     @Test("recordAttempt updates lastAttemptTime only and leaves the latch untouched")
@@ -84,28 +112,32 @@ struct DeviceWatcherBackoffTests {
         #expect(tracker.isAutoRetryPaused, "recording an attempt must not silently re-arm the gate")
     }
 
-    @Test("recordFailure latches the gate on the first failure and keeps any later error latched")
+    @Test("recordFailure latches a refusal on the first failure and keeps later refusals latched")
     func recordFailureLatchesOnFirstFailure() {
         var tracker = DeviceWatcherBackoff.Tracker()
         let offsets: [TimeInterval] = [0.0, 20.0, 80.0, 260.0]
 
+        // A refusal (-300) has nothing to settle: it latches on the first occurrence and
+        // never re-arms, no matter how many more arrive.
         for index in offsets.indices {
             let attemptTime = baseTime.addingTimeInterval(offsets[index])
             let domain = index.isMultiple(of: 2) ? "SidecarErrorDomain" : "com.maccar.sidecar"
-            _ = tracker.recordFailure(error: makeError(domain: domain, code: -200), at: attemptTime)
+            _ = tracker.recordFailure(error: makeError(domain: domain, code: -300), at: attemptTime)
             #expect(tracker.lastAttemptTime == attemptTime)
-            #expect(tracker.interval == 20.0)
-            #expect(tracker.consecutiveNotFoundCount == index + 1)
-            #expect(tracker.isAutoRetryPaused, "failure #\(index + 1) must leave the gate latched")
+            #expect(tracker.interval == DeviceWatcherBackoff.nonEscalatingFailureSeconds)
+            #expect(tracker.isAutoRetryPaused, "refusal #\(index + 1) must leave the gate latched")
         }
 
-        let timeoutTime = baseTime.addingTimeInterval(500.0)
-        let timeoutOutcome = tracker.recordFailure(error: makeError(domain: "com.maccar.sidecar", code: -300), at: timeoutTime)
-        #expect(timeoutOutcome == DeviceWatcherBackoff.FailureOutcome(interval: 20.0, consecutiveNotFoundCount: 0))
-        #expect(tracker.lastAttemptTime == timeoutTime)
-        #expect(tracker.interval == 20.0)
-        #expect(tracker.consecutiveNotFoundCount == 0)
-        #expect(tracker.isAutoRetryPaused, "a non--200 failure must not re-arm the gate")
+        let finalOutcome = tracker.recordFailure(
+            error: makeError(domain: "com.maccar.sidecar", code: -302),
+            at: baseTime.addingTimeInterval(500.0)
+        )
+        #expect(finalOutcome == DeviceWatcherBackoff.FailureOutcome(
+            interval: DeviceWatcherBackoff.nonEscalatingFailureSeconds,
+            consecutiveNotFoundCount: 0,
+            isAutoRetryPaused: true
+        ))
+        #expect(tracker.isAutoRetryPaused, "a later refusal must not re-arm the gate")
     }
 
     @Test("canAutoConnect enforces exact >= interval boundary and allows distantPast")
@@ -113,9 +145,17 @@ struct DeviceWatcherBackoffTests {
         var tracker = DeviceWatcherBackoff.Tracker()
         #expect(tracker.canAutoConnect(at: baseTime))
 
-        _ = tracker.recordFailure(error: makeError(code: -200), at: baseTime)
+        // A refusal latches at the non-escalating cadence.
+        _ = tracker.recordFailure(error: makeError(code: -300), at: baseTime)
         #expect(!tracker.canAutoConnect(at: baseTime.addingTimeInterval(19.999)))
         #expect(tracker.canAutoConnect(at: baseTime.addingTimeInterval(20.0)))
+
+        // A transport-settling failure uses the shorter retry cadence instead.
+        var settlingTracker = DeviceWatcherBackoff.Tracker()
+        _ = settlingTracker.recordFailure(error: makeError(code: -200), at: baseTime)
+        let retrySeconds = DeviceWatcherBackoff.transientRetrySeconds
+        #expect(!settlingTracker.canAutoConnect(at: baseTime.addingTimeInterval(retrySeconds - 0.001)))
+        #expect(settlingTracker.canAutoConnect(at: baseTime.addingTimeInterval(retrySeconds)))
     }
 
     @Test("resetForReconnect and resetForUSBAttach reset cooldown to 2s and clear flags")

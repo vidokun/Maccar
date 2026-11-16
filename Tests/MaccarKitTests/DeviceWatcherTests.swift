@@ -34,6 +34,9 @@ struct DeviceWatcherTests {
             virtualDisplay: virtualDisplay,
             mirrorManager: mirror,
             settings: settings,
+            // Deterministic on any machine: the default reads real IOKit, so the suite would
+            // pass or fail depending on whether an iPad is plugged in.
+            usbPresence: MockUSBDevicePresence(isPresent: true),
             dispatchesReconnectTicks: dispatchesReconnectTicks,
             registersSystemObservers: false,
             now: { clock.now() },
@@ -445,6 +448,13 @@ struct DeviceWatcherTests {
         #expect(harness.sidecar.connectCalls.count == 1)
 
         harness.watcher.notifyUSBDeviceAttached()
+        harness.watcher.flushQueueForTesting()
+        // D6d: the attach re-arms the gate but defers the attempt until Sidecar can accept
+        // it, so the immediate flush issues nothing.
+        #expect(harness.sidecar.connectCalls.count == 1)
+
+        harness.clock.advance(by: DeviceWatcherBackoff.usbAttachSettleSeconds)
+        harness.watcher.performTickForTesting()
         harness.watcher.flushQueueForTesting()
         #expect(harness.sidecar.connectCalls.count == 2, "a replug must re-arm exactly one attempt")
 

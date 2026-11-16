@@ -30,16 +30,23 @@ struct DeviceWatcherResilienceTests {
         let settings = MockSettings(registeredDeviceName: "VPad", autoConnect: autoConnect, autoMirror: true)
         let watcher = DeviceWatcher(
             sidecar: sidecar, virtualDisplay: vd, mirrorManager: mirror, settings: settings,
+            // These tests exercise retry policy, not the presence gate. A fixed "present"
+            // keeps them deterministic: the default `SystemUSBDevicePresence` would make the
+            // result depend on whether an iPad happens to be plugged into the test machine.
+            usbPresence: MockUSBDevicePresence(isPresent: true),
             dispatchesReconnectTicks: dispatchesReconnectTicks, registersSystemObservers: false,
             now: { clock.now() }, sleep: sleep
         )
         return ResilienceHarness(sidecar: sidecar, virtualDisplay: vd, mirror: mirror, settings: settings, clock: clock, watcher: watcher)
     }
 
-    /// Drive the watcher into the latched state. Under DD-6 a single failure is enough.
+    /// Drive the watcher into the latched state.
+    ///
+    /// Uses a refusal (-300), not -200: since Wave 2B a transport-settling error is worth one
+    /// bounded retry, so it no longer latches on the first failure. A refusal still does.
     private func driveMinus200ToAutoRetryPaused(_ harness: ResilienceHarness) {
         harness.sidecar.reachableDevicesResult = .success(["VPad"])
-        harness.sidecar.connectError = NSError(domain: "SidecarErrorDomain", code: -200, userInfo: nil)
+        harness.sidecar.connectError = NSError(domain: "SidecarErrorDomain", code: -300, userInfo: nil)
         harness.watcher.performTickForTesting()
         #expect(harness.watcher.status == .autoRetryPaused(targetName: "VPad"))
     }
@@ -52,21 +59,30 @@ struct DeviceWatcherResilienceTests {
         harness.watcher.performTickForTesting()
     }
 
-    @Test("Sidecar -200 latches the gate on the first failure and never retries on its own")
-    func minus200EscalatesAndPausesAutoRetry() {
+    @Test("A persistent -200 spends the transient budget then latches, never looping")
+    func minus200SpendsTransientBudgetThenLatches() {
         let harness = makeHarness()
         harness.sidecar.reachableDevicesResult = .success(["VPad"])
         harness.sidecar.connectError = NSError(domain: "SidecarErrorDomain", code: -200, userInfo: nil)
         harness.watcher.performTickForTesting()
         #expect(harness.sidecar.connectCalls.count == 1)
-        // DD-6: the first failure already latches, so no intermediate escalating wait exists.
+        // -200 is transport-settling: the device is present but still coming up. One
+        // bounded retry is granted rather than latching a sub-second hiccup forever.
+        #expect(harness.watcher.status == .waitingForDevice(targetName: "VPad"))
+
+        // Let the retry cadence elapse: the retry runs, fails again, and this time the
+        // budget is gone, so the gate latches.
+        harness.clock.advance(by: DeviceWatcherBackoff.transientRetrySeconds)
+        harness.watcher.performTickForTesting()
+        #expect(harness.sidecar.connectCalls.count == 2)
         #expect(harness.watcher.status == .autoRetryPaused(targetName: "VPad"))
 
+        // Exhausted budget means no further automatic attempts, ever.
         for gap in [20.0, 60.0, 180.0, 600.0] {
             harness.clock.advance(by: gap)
             harness.watcher.performTickForTesting()
         }
-        #expect(harness.sidecar.connectCalls.count == 1, "no automatic retry after any failure")
+        #expect(harness.sidecar.connectCalls.count == 2, "the transient budget is not a retry loop")
         #expect(harness.watcher.status == .autoRetryPaused(targetName: "VPad"))
     }
 
@@ -109,7 +125,14 @@ struct DeviceWatcherResilienceTests {
         asyncHarness.mirror.ipadDisplayID = 53
         asyncHarness.watcher.notifyUSBDeviceAttached()
         asyncHarness.watcher.flushQueueForTesting()
-        // One failed attempt plus exactly one retry the replug is allowed to make.
+        // D6d: the attach itself no longer connects — Sidecar needs ~4 s after the USB node
+        // appears, and attempting earlier raises a popup for nothing. The tick that runs on
+        // the attach is therefore a no-op.
+        #expect(asyncHarness.sidecar.connectCalls.count == 1)
+
+        // Once the settle window has elapsed, the retry runs and connects.
+        asyncHarness.clock.advance(by: DeviceWatcherBackoff.usbAttachSettleSeconds)
+        asyncHarness.watcher.performTickForTesting()
         #expect(asyncHarness.sidecar.connectCalls.count == 2)
         #expect(asyncHarness.watcher.status == .connected(deviceName: "VPad", displayID: 53, mirrored: true))
 

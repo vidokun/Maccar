@@ -26,8 +26,18 @@ public final class SidecarObserverToken: @unchecked Sendable {
     }
 }
 
-public protocol SidecarControlling: AnyObject, Sendable {
-    var isSupported: Bool { get }
+/// Reports whether an iPad is *physically attached* right now.
+///
+/// `SidecarDisplayManager.devices` lists devices Sidecar has paired with, not devices that are
+/// currently plugged in — the field log on 2026-11-16 shows `VPad` still listed 3.5 s after the
+/// cable was pulled, and the resulting `connect()` raised an Apple popup for an unplugged iPad.
+/// This protocol is the authoritative answer that gate needs.
+public protocol USBDevicePresenceChecking: Sendable {
+    /// `true` when at least one iPad is attached over USB at this instant.
+    func isIPadAttached() -> Bool
+}
+
+public protocol SidecarControlling: AnyObject, Sendable {    var isSupported: Bool { get }
     func reachableDevices() throws -> [String]
     func connectedDevices() -> [String]
     func isDeviceConnected(deviceName: String) -> Bool

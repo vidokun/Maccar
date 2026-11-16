@@ -9,9 +9,23 @@ internal protocol USBAttachMonitoring: Sendable {
 }
 
 internal final class USBDeviceAttachMonitor: USBAttachMonitoring, @unchecked Sendable {
-    private static let appleVendorID = 0x05AC
     private static let usbProductNameProperty = "USB Product Name"
     private static let iPadProductToken = "ipad"
+
+    /// The `IOServiceMatching` dictionary used for the attach notification.
+    ///
+    /// Deliberately **unfiltered**. This once carried `matching["idVendor"] = 0x05AC`, which
+    /// matched zero `IOUSBHostDevice` services on macOS 14/15 — the property exists on the
+    /// iPad node, but `IOServiceMatching` does not treat it as a matchable property there, so
+    /// `kIOFirstMatchNotification` never fired and the replug path that re-arms auto-connect
+    /// (D6) was dead code. Filtering happens in `isIPadUSBService` instead, where it costs
+    /// nothing: the notification stream for Apple USB devices is tiny.
+    ///
+    /// Kept `internal` so `USBDeviceAttachMonitorTests` can assert it never regains a
+    /// property filter that would make the callback unfireable again.
+    internal static func matchingDictionary() -> NSMutableDictionary? {
+        IOServiceMatching("IOUSBHostDevice") as NSMutableDictionary?
+    }
 
     private final class WeakMonitorBox: @unchecked Sendable {
         weak var monitor: USBDeviceAttachMonitor?
@@ -39,11 +53,10 @@ internal final class USBDeviceAttachMonitor: USBAttachMonitoring, @unchecked Sen
     internal func start() {
         guard stateLock.withLock({ !$0.isStarted }) else { return }
 
-        guard let matching = IOServiceMatching("IOUSBHostDevice") as NSMutableDictionary? else {
+        guard let matching = Self.matchingDictionary() else {
             MaccarLogger.shared.warning("USBDeviceAttachMonitor", "Failed to create IOUSBHostDevice matching dictionary.")
             return
         }
-        matching["idVendor"] = NSNumber(value: Self.appleVendorID)
 
         guard let port = IONotificationPortCreate(kIOMainPortDefault) else {
             MaccarLogger.shared.warning("USBDeviceAttachMonitor", "Failed to create IONotificationPort.")
@@ -138,6 +151,14 @@ internal final class USBDeviceAttachMonitor: USBAttachMonitoring, @unchecked Sen
             MaccarLogger.shared.info("USBDeviceAttachMonitor", "Detected USB attachment of Apple iPad.")
             onIPadAttached()
         }
+    }
+
+    /// Whether this IOKit service node is an iPad.
+    ///
+    /// Kept `internal` so `SystemUSBDevicePresence` can reuse the exact same test the attach
+    /// notification uses — two different definitions of "is an iPad" would drift.
+    internal static func isIPadService(_ service: io_registry_entry_t) -> Bool {
+        isIPadUSBService(service)
     }
 
     private static func isIPadUSBService(_ service: io_registry_entry_t) -> Bool {

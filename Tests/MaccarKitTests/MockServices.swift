@@ -252,3 +252,19 @@ final class MockSettings: SettingsProviding, @unchecked Sendable {
         !(registeredDeviceName ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
     }
 }
+
+/// Controls the physical-presence gate (D6c) in tests, where no real iPad is attached.
+final class MockUSBDevicePresence: USBDevicePresenceChecking, @unchecked Sendable {
+    private let lock: OSAllocatedUnfairLock<Bool>
+
+    init(isPresent: Bool) {
+        self.lock = OSAllocatedUnfairLock(initialState: isPresent)
+    }
+
+    var isPresent: Bool {
+        get { lock.withLock { $0 } }
+        set { lock.withLock { $0 = newValue } }
+    }
+
+    func isIPadAttached() -> Bool { lock.withLock { $0 } }
+}

@@ -193,8 +193,25 @@ extension DeviceWatcher {
         }
     }
 
-    private func teardownSessionBeforeReconnect(target: String, wasConnected: Bool, capturedGeneration: UInt64) {
-        guard wasConnected || sidecar.isDeviceConnected(deviceName: target) else { return }
+    /// Clears a stale Sidecar session before a connect.
+    ///
+    /// `force` exists because the two callers have different knowledge:
+    ///
+    /// - The **manual** path passes `false` and keeps the historical guard. Pressing Reconnect
+    ///   while Sidecar reports no session has nothing to tear down, and a disconnect there
+    ///   would only add noise to the operation timeline.
+    /// - The **automatic** path passes `true`. It only reaches here after `handleConnectedTick`
+    ///   declined to adopt (no live session from Maccar's point of view), so there is no healthy
+    ///   session to destroy — but Sidecar may still hold the *ended* session from before the
+    ///   cable was pulled, and connecting over it fails with "The device was disconnected".
+    ///   `disconnect(ignoreNotConnected: true)` is idempotent, so forcing it is safe.
+    internal func teardownSessionBeforeReconnect(
+        target: String,
+        wasConnected: Bool,
+        capturedGeneration: UInt64,
+        force: Bool = false
+    ) {
+        guard force || wasConnected || sidecar.isDeviceConnected(deviceName: target) else { return }
         disableActiveMirrorBeforeDisconnect()
         try? sidecar.disconnect(deviceName: target, ignoreNotConnected: true)
         pollUntil(
