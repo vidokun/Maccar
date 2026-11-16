@@ -18,6 +18,9 @@ public final class DeviceRegistry: @unchecked Sendable {
 
     private let lock = OSAllocatedUnfairLock(initialState: State())
 
+    /// The registry the running app uses. Tests construct their own instances instead.
+    public static let shared: DeviceRegistry = DeviceRegistryStore.shared.load()
+
     public init() {}
 
     /// Every known device, in registration order.

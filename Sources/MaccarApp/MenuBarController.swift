@@ -208,7 +208,20 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
         menu.addItem(NSMenuItem.separator())
         addConnectionSection(status: status, registered: registered, shortcutEnabled: shortcutEnabled, shortcutLabel: shortcutLabel)
         addResolutionSubmenu(currentResolutionKey: preferredResolution)
-        addTargetDeviceSubmenu(registered: registered, reachableDevices: reachableDevices)
+        // Wave 3.3: once the registry knows about devices, the menu is registry-backed and
+        // identifier-keyed. Before that it falls back to the legacy typed-name submenu, so an
+        // upgrading user keeps working exactly as before until a device is registered.
+        let registryDevices = DeviceRegistry.shared.devices
+        if registryDevices.isEmpty {
+            addTargetDeviceSubmenu(registered: registered, reachableDevices: reachableDevices)
+        } else {
+            addRegistryDeviceSubmenu(
+                devices: registryDevices,
+                activeIdentifier: DeviceRegistry.shared.activeDevice?.identifier,
+                reachableIdentifiers: registryReachableIdentifiers(),
+                fallbackRegisteredName: registered
+            )
+        }
         menu.addItem(NSMenuItem.separator())
         addSettingsSection(
             autoConnect: autoConnect,
@@ -231,8 +244,14 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
         menu.addItem(makeItem("Quit Maccar", action: #selector(quitTapped), key: "q"))
     }
 
-    private func normalizedRegisteredName(_ raw: String?) -> String? {
-        guard let trimmed = raw?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else { return nil }
+    /// Identifiers Sidecar reports right now, or `nil` when the query fails — in which case the
+    /// menu must not claim a device is "(not detected)" on the strength of an error.
+    private func registryReachableIdentifiers() -> Set<String>? {
+        guard let devices = try? SidecarService.shared.reachableDevicesWithIdentity() else { return nil }
+        return Set(devices.map(\.identifier))
+    }
+
+    private func normalizedRegisteredName(_ raw: String?) -> String? {        guard let trimmed = raw?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else { return nil }
         return trimmed
     }
 
@@ -355,6 +374,44 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
         setupMenu()
         guard canDispatchReconnect(source: "device selection") else { return }
         DeviceWatcher.shared.reconnectNow()
+    }
+
+    /// Selects a registered device by identifier (Wave 3.3).
+    ///
+    /// Identifier-keyed, so a rename between sessions cannot retarget the app at a different iPad.
+    /// The selection is persisted immediately: the user's choice must survive a crash before the
+    /// next connect completes.
+    @objc func registryDeviceSelectedTapped(_ sender: NSMenuItem) {
+        guard !isOperationBusy, let identifier = sender.representedObject as? String else { return }
+        let registry = DeviceRegistry.shared
+        registry.setActive(identifier: identifier)
+        DeviceRegistryStore.shared.save(
+            devices: registry.devices,
+            activeIdentifier: registry.activeDevice?.identifier
+        )
+        MaccarLogger.shared.info("MenuBar", "Selected registered iPad by identifier.")
+        setupMenu()
+        guard canDispatchReconnect(source: "device selection") else { return }
+        DeviceWatcher.shared.reconnectNow()
+    }
+
+    /// Removes a device from the registry by identifier.
+    ///
+    /// If it was the active device, the registry promotes the next one, so the app is never left
+    /// pointing at a device it no longer knows. No connect is issued here: forgetting a device is
+    /// not a request to connect to another one.
+    @objc func registryDeviceForgetTapped(_ sender: NSMenuItem) {
+        guard !isOperationBusy, let identifier = sender.representedObject as? String else { return }
+        let registry = DeviceRegistry.shared
+        registry.forget(identifier: identifier)
+        DeviceRegistryStore.shared.save(
+            devices: registry.devices,
+            activeIdentifier: registry.activeDevice?.identifier
+        )
+        MaccarLogger.shared.info("MenuBar", "Forgot registered iPad.")
+        DeviceWatcher.shared.clearTargetState()
+        updateTitle(for: DeviceWatcher.shared.status)
+        setupMenu()
     }
 
     @objc func changeDeviceNameTapped() {

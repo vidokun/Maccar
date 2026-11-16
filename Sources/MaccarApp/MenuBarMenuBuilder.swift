@@ -90,6 +90,59 @@ extension MenuBarController {
         menu.addItem(targetParent)
     }
 
+    /// Renders the registry-backed device menu (Wave 3.3).
+    ///
+    /// The rows come from `TargetDeviceMenuBuilder` in `MaccarKit`, which is where the behaviour is
+    /// tested — `Package.swift` has no `MaccarAppTests` target, so anything worth asserting has to
+    /// live in the library. This method only translates those rows into `NSMenuItem`s.
+    ///
+    /// Device switching is deliberately an explicit action: every `connect()` can raise an Apple
+    /// popup, so adopting a device automatically on attach would produce a stream of them.
+    func addRegistryDeviceSubmenu(
+        devices: [SidecarDevice],
+        activeIdentifier: String?,
+        reachableIdentifiers: Set<String>? = nil,
+        fallbackRegisteredName: String? = nil
+    ) {
+        let items = TargetDeviceMenuBuilder.items(
+            registryDevices: devices,
+            activeIdentifier: activeIdentifier,
+            reachableIdentifiers: reachableIdentifiers,
+            isEnabled: !isOperationBusy,
+            fallbackRegisteredName: fallbackRegisteredName
+        )
+
+        let targetMenu = NSMenu()
+        targetMenu.autoenablesItems = false
+        for item in items {
+            switch item.kind {
+            case .separator:
+                targetMenu.addItem(NSMenuItem.separator())
+            case .info:
+                targetMenu.addItem(makeDisabledItem(item.title))
+            case .select:
+                targetMenu.addItem(makeItem(
+                    item.title,
+                    action: #selector(registryDeviceSelectedTapped(_:)),
+                    representedObject: item.identifier,
+                    isOn: item.isActive,
+                    isEnabled: item.isEnabled
+                ))
+            case .forget:
+                targetMenu.addItem(makeItem(
+                    item.title,
+                    action: #selector(registryDeviceForgetTapped(_:)),
+                    representedObject: item.identifier,
+                    isEnabled: item.isEnabled
+                ))
+            }
+        }
+
+        let targetParent = NSMenuItem(title: "Target iPad Device", action: nil, keyEquivalent: "")
+        targetParent.submenu = targetMenu
+        menu.addItem(targetParent)
+    }
+
     func addSettingsSection(
         autoConnect: Bool,
         autoMirror: Bool,

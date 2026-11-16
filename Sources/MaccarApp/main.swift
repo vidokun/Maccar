@@ -82,6 +82,10 @@ func runMenuBarApp() {
     _ = controller
 
     DeviceWatcher.shared.start()
+    // Populate the registry from what Sidecar already knows, so the Target iPad submenu shows
+    // real devices on first launch instead of staying empty until something is plugged in.
+    // Safe to call before start(): it only reads Sidecar and writes UserDefaults.
+    DeviceWatcher.shared.refreshRegisteredDevices()
     MaccarLogger.shared.info("App", "Menu Bar application ready (shortcut: \(HotKeyManager.shared.currentShortcutLabel)).")
     app.run()
 }

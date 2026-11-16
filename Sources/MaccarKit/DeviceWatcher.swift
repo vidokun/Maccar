@@ -45,7 +45,10 @@ public final class DeviceWatcher: @unchecked Sendable {
         var onReachableDevicesChange: (@Sendable ([String]) -> Void)?
     }
 
-    public static let shared = DeviceWatcher()
+    public static let shared = DeviceWatcher(
+        registry: .shared,
+        registryStore: .shared
+    )
 
     internal let sidecar: any SidecarControlling
     internal let virtualDisplay: any VirtualDisplayControlling
@@ -352,7 +355,7 @@ public final class DeviceWatcher: @unchecked Sendable {
     internal var registry: DeviceRegistry? { registryStorage }
 
     /// Publishes the registry's current device list so the menu can render it.
-    internal func refreshRegisteredDevices() {
+    public func refreshRegisteredDevices() {
         guard let registry else { return }
         guard let devices = try? sidecar.reachableDevicesWithIdentity() else { return }
         for device in devices { registry.register(device) }

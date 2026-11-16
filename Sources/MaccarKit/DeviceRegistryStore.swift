@@ -24,8 +24,17 @@ public struct DeviceRegistryStore: @unchecked Sendable {
 
     private let defaults: UserDefaults
 
+    /// The store the running app writes through. Tests pass an isolated `UserDefaults` instead.
+    public static let shared = DeviceRegistryStore()
+
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
+    }
+
+    /// Persists the registry's current state in one call, so callers cannot save devices and the
+    /// selection out of step with each other.
+    public func save(_ registry: DeviceRegistry) {
+        save(devices: registry.devices, activeIdentifier: registry.activeDevice?.identifier)
     }
 
     public func save(devices: [SidecarDevice], activeIdentifier: String?) {
