@@ -239,4 +239,121 @@ struct DeviceRegistryTests {
             #expect(reloaded.count == 2)
         }
     }
+
+    @Test("Launch adoption registers only the configured iPad, leaving others for the prompt")
+    func adoptionRegistersOnlyConfiguredDevice() throws {
+        try withIsolatedDefaults { defaults in
+            let sidecar = MockSidecarService()
+            sidecar.reachableDevicesWithIdentityResult = .success([
+                SidecarDevice(identifier: "UUID-A", name: "DeskPad", model: "iPad16,1"),
+                SidecarDevice(identifier: "UUID-B", name: "TravelPad", model: "iPad16,2")
+            ])
+            let registry = DeviceRegistry()
+            let watcher = DeviceWatcher(
+                sidecar: sidecar,
+                virtualDisplay: MockVirtualDisplayService(),
+                mirrorManager: MockDisplayMirrorManager(),
+                // The user configured "TravelPad" back when identity was a typed name.
+                settings: MockSettings(registeredDeviceName: "TravelPad", autoConnect: true, autoMirror: true),
+                usbPresence: MockUSBDevicePresence(isPresent: true),
+                registry: registry,
+                registryStore: DeviceRegistryStore(defaults: defaults),
+                dispatchesReconnectTicks: false,
+                registersSystemObservers: false,
+                now: { ManualTestClock().now() },
+                sleep: { _ in }
+            )
+
+            watcher.adoptActiveDeviceIfUnregistered()
+
+            // Exactly one: adopting both would pre-empt the Wave-4 prompt for the other iPad.
+            #expect(registry.count == 1)
+            #expect(registry.activeDevice?.identifier == "UUID-B")
+        }
+    }
+
+    @Test("Adoption does nothing once the registry has devices")
+    func adoptionIsIgnoredWhenRegistryPopulated() throws {        try withIsolatedDefaults { defaults in
+            let sidecar = MockSidecarService()
+            sidecar.reachableDevicesWithIdentityResult = .success([
+                SidecarDevice(identifier: "UUID-A", name: "DeskPad", model: ""),
+                SidecarDevice(identifier: "UUID-B", name: "Other", model: "")
+            ])
+            let registry = DeviceRegistry()
+            registry.register(SidecarDevice(identifier: "UUID-A", name: "DeskPad", model: ""))
+            let watcher = DeviceWatcher(
+                sidecar: sidecar,
+                virtualDisplay: MockVirtualDisplayService(),
+                mirrorManager: MockDisplayMirrorManager(),
+                settings: MockSettings(registeredDeviceName: "Other", autoConnect: true, autoMirror: true),
+                usbPresence: MockUSBDevicePresence(isPresent: true),
+                registry: registry,
+                registryStore: DeviceRegistryStore(defaults: defaults),
+                dispatchesReconnectTicks: false,
+                registersSystemObservers: false,
+                now: { ManualTestClock().now() },
+                sleep: { _ in }
+            )
+
+            watcher.adoptActiveDeviceIfUnregistered()
+            #expect(registry.count == 1, "existing registrations must never be added to here")
+        }
+    }
+
+    @Test("Adoption never guesses: an unmatched configured name leaves the registry empty")
+    func adoptionRequiresExactNameMatch() throws {
+        try withIsolatedDefaults { defaults in
+            let sidecar = MockSidecarService()
+            sidecar.reachableDevicesWithIdentityResult = .success([
+                SidecarDevice(identifier: "UUID-A", name: "DeskPad", model: "iPad16,1")
+            ])
+            let registry = DeviceRegistry()
+            let watcher = DeviceWatcher(
+                sidecar: sidecar,
+                virtualDisplay: MockVirtualDisplayService(),
+                mirrorManager: MockDisplayMirrorManager(),
+                // Configured for an iPad that is not the one attached.
+                settings: MockSettings(registeredDeviceName: "SomeOtherPad", autoConnect: true, autoMirror: true),
+                usbPresence: MockUSBDevicePresence(isPresent: true),
+                registry: registry,
+                registryStore: DeviceRegistryStore(defaults: defaults),
+                dispatchesReconnectTicks: false,
+                registersSystemObservers: false,
+                now: { ManualTestClock().now() },
+                sleep: { _ in }
+            )
+
+            watcher.adoptActiveDeviceIfUnregistered()
+
+            // "The only device present" must NOT be adopted: that would silently register an iPad
+            // the user never chose and suppress the Wave-4 prompt.
+            #expect(registry.count == 0)
+        }
+    }
+
+    @Test("Adoption is a no-op on a fresh install with no configured name")
+    func adoptionSkipsFreshInstall() throws {        try withIsolatedDefaults { defaults in
+            let sidecar = MockSidecarService()
+            sidecar.reachableDevicesWithIdentityResult = .success([
+                SidecarDevice(identifier: "UUID-A", name: "DeskPad", model: "")
+            ])
+            let registry = DeviceRegistry()
+            let watcher = DeviceWatcher(
+                sidecar: sidecar,
+                virtualDisplay: MockVirtualDisplayService(),
+                mirrorManager: MockDisplayMirrorManager(),
+                settings: MockSettings(registeredDeviceName: nil, autoConnect: true, autoMirror: true),
+                usbPresence: MockUSBDevicePresence(isPresent: true),
+                registry: registry,
+                registryStore: DeviceRegistryStore(defaults: defaults),
+                dispatchesReconnectTicks: false,
+                registersSystemObservers: false,
+                now: { ManualTestClock().now() },
+                sleep: { _ in }
+            )
+
+            watcher.adoptActiveDeviceIfUnregistered()
+            #expect(registry.count == 0, "a fresh install has nothing to migrate; the prompt decides")
+        }
+    }
 }

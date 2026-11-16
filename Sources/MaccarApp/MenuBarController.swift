@@ -11,6 +11,8 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
     private let isPreview: Bool
     private var updateController: UpdateController?
     private var cachedReachableDevices: [String] = []
+    /// Session-scoped memory of which unregistered iPads have already been offered (Wave 4).
+    private let unknownDeviceCoordinator = UnknownDeviceCoordinator()
     var cachedAvailableModes: [DisplayModeInfo] = []
     private var isDisconnectInFlight: Bool = false
     private var isResolutionSwitchInFlight: Bool = false
@@ -83,6 +85,10 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
         updateTitle(for: status)
         rebuildMenuSafely()
         if case .connected = status { refreshCachesInBackground(); return }
+        // The reachable-devices callback fires only when that list *changes*, and at launch it
+        // usually changes while a connect is in flight — when the prompt is deliberately skipped.
+        // Re-evaluating on every status transition gives it the chance it otherwise never gets.
+        promptForUnknownDeviceIfNeeded()
         if cachedAvailableModes.isEmpty { refreshCachesInBackground() }
     }
 
@@ -90,6 +96,47 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
         guard devices != cachedReachableDevices else { return }
         cachedReachableDevices = devices
         rebuildMenuSafely()
+        promptForUnknownDeviceIfNeeded()
+    }
+
+    /// Offers to register an iPad Maccar has never seen (Wave 4 / DD-4).
+    ///
+    /// Deliberately not tied to a `connect()`: registering changes only the registry, so this
+    /// cannot raise an Apple popup. `UnknownDeviceCoordinator` guarantees each device is offered at
+    /// most once per session, and "Not Now" is remembered for the session only so a later replug
+    /// may ask again.
+    private func promptForUnknownDeviceIfNeeded() {
+        guard !isOperationBusy else { return }
+        guard let reachable = try? SidecarService.shared.reachableDevicesWithIdentity() else { return }
+
+        let registry = DeviceRegistry.shared
+        guard let candidate = unknownDeviceCoordinator.nextUnknownDevice(
+            reachable: reachable,
+            registeredIdentifiers: Set(registry.devices.map(\.identifier)),
+            currentTargetName: MaccarSettings.shared.registeredDeviceName
+        ) else { return }
+
+        MaccarLogger.shared.info("MenuBar", "Offering to register a newly detected iPad.")
+
+        let alert = NSAlert()
+        alert.messageText = "New iPad detected"
+        alert.informativeText = "Register '\(candidate.name)' so Maccar can connect to it? You can switch between registered iPads from the Menu Bar."
+        alert.addButton(withTitle: "Register")
+        alert.addButton(withTitle: "Not Now")
+        alert.alertStyle = .informational
+
+        let response = alert.runModal()
+        guard response == .alertFirstButtonReturn else {
+            // Session-scoped: a future replug may ask again rather than silencing it forever.
+            unknownDeviceCoordinator.dismiss(identifier: candidate.identifier)
+            MaccarLogger.shared.info("MenuBar", "Declined to register a newly detected iPad for this session.")
+            return
+        }
+
+        registry.register(candidate)
+        DeviceRegistryStore.shared.save(registry)
+        MaccarLogger.shared.info("MenuBar", "Registered a newly detected iPad.")
+        setupMenu()
     }
 
     private func updateTitle(for status: DeviceWatcherStatus) {
@@ -310,9 +357,20 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
 
     @objc func clearDeviceNameTapped() {
         guard !isOperationBusy else { return }
+        // "Unregister iPad" must mean *forgotten*, not merely "name cleared". Leaving the registry
+        // entry behind made the action useless: the app still considered the iPad known, so it was
+        // never offered for registration again and the Wave-4 prompt could not fire.
+        let registry = DeviceRegistry.shared
+        if let active = registry.activeDevice {
+            registry.forget(identifier: active.identifier)
+            unknownDeviceCoordinator.clearDismissal(identifier: active.identifier)
+            DeviceRegistryStore.shared.save(registry)
+        }
+        // The legacy name is cleared too, so the migration path cannot silently re-adopt the device
+        // the user just forgot.
         MaccarSettings.shared.registeredDeviceName = nil
         DeviceWatcher.shared.clearTargetState()
-        MaccarLogger.shared.info("MenuBar", "Cleared registered iPad device name.")
+        MaccarLogger.shared.info("MenuBar", "Unregistered the iPad and removed it from the device registry.")
         updateTitle(for: DeviceWatcher.shared.status)
         setupMenu()
     }
@@ -404,10 +462,10 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
         guard !isOperationBusy, let identifier = sender.representedObject as? String else { return }
         let registry = DeviceRegistry.shared
         registry.forget(identifier: identifier)
-        DeviceRegistryStore.shared.save(
-            devices: registry.devices,
-            activeIdentifier: registry.activeDevice?.identifier
-        )
+        // Forgetting is the inverse of registering, so the prompt must be able to ask about this
+        // device again rather than staying silent for the rest of the session.
+        unknownDeviceCoordinator.clearDismissal(identifier: identifier)
+        DeviceRegistryStore.shared.save(registry)
         MaccarLogger.shared.info("MenuBar", "Forgot registered iPad.")
         DeviceWatcher.shared.clearTargetState()
         updateTitle(for: DeviceWatcher.shared.status)

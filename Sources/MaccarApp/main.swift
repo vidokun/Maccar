@@ -85,7 +85,11 @@ func runMenuBarApp() {
     // Populate the registry from what Sidecar already knows, so the Target iPad submenu shows
     // real devices on first launch instead of staying empty until something is plugged in.
     // Safe to call before start(): it only reads Sidecar and writes UserDefaults.
-    DeviceWatcher.shared.refreshRegisteredDevices()
+    //
+    // Only the *active* device is adopted implicitly. Registering every device Sidecar has ever
+    // paired with would pre-empt the Wave-4 "New iPad detected" prompt, and the user would never
+    // be asked about an iPad they have not chosen.
+    DeviceWatcher.shared.adoptActiveDeviceIfUnregistered()
     MaccarLogger.shared.info("App", "Menu Bar application ready (shortcut: \(HotKeyManager.shared.currentShortcutLabel)).")
     app.run()
 }

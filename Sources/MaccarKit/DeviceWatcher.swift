@@ -359,7 +359,33 @@ public final class DeviceWatcher: @unchecked Sendable {
         guard let registry else { return }
         guard let devices = try? sidecar.reachableDevicesWithIdentity() else { return }
         for device in devices { registry.register(device) }
-        registryStore?.save(devices: registry.devices, activeIdentifier: registry.activeDevice?.identifier)
+        registryStore?.save(registry)
+    }
+
+    /// Adopts the configured device into an empty registry, and nothing else.
+    ///
+    /// Migration path. A user upgrading from the name-keyed era has `registeredDeviceName` set and
+    /// no registry, so without this the menu would drop to "No iPad Registered" and lose their
+    /// setup. Adoption requires an **exact name match**: a fuzzy match (or "the only device
+    /// present") would silently register whatever is plugged in, and the Wave-4 "New iPad
+    /// detected" prompt would never fire for the iPad the user has not chosen yet.
+    public func adoptActiveDeviceIfUnregistered() {
+        guard let registry, registry.count == 0 else { return }
+        guard let devices = try? sidecar.reachableDevicesWithIdentity(), !devices.isEmpty else { return }
+
+        // No configured name means there is nothing to migrate — this is a fresh install, and the
+        // prompt owns that decision.
+        guard let configuredName = resolvedTargetName()?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased(), !configuredName.isEmpty else { return }
+
+        guard let adopted = devices.first(where: {
+            $0.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == configuredName
+        }) else { return }
+
+        registry.register(adopted)
+        registryStore?.save(registry)
+        MaccarLogger.shared.info("DeviceWatcher", "Adopted the configured iPad into an empty device registry.")
     }
 
     internal func updateStatus(_ newStatus: DeviceWatcherStatus) {
