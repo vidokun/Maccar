@@ -13,6 +13,13 @@
   // Each entry is [English, Bahasa Indonesia]; a missing ID string falls back to English.
   var TEXT = {
     'theme.label': ['Switch between light and dark theme', 'Ganti tema terang dan gelap'],
+    'nav.how': ['How it works', 'Cara kerjanya'],
+    'nav.install': ['Install', 'Pasang'],
+    'nav.compare': ['Compare', 'Bandingkan'],
+    'nav.faq': ['FAQ', 'Tanya jawab'],
+    'nav.support': ['Support', 'Dukungan'],
+    'nav.open': ['Open menu', 'Buka menu'],
+    'nav.close': ['Close menu', 'Tutup menu'],
     'hero.badge': ['No monitor · No dummy plug · One iPad', 'Tanpa monitor · Tanpa colokan dummy · Cukup iPad'],
     'hero.title': ['Turn an iPad into the main monitor of a <span class="hero-title-accent">headless Mac mini</span>.', 'Jadikan iPad sebagai <span class="hero-title-accent">monitor utama</span> Mac mini headless Anda.'],
     'hero.subtitle': ['macOS wants a screen before Sidecar will start — that is the whole reason a Mac mini with no monitor needs an HDMI dummy plug. Maccar puts a Retina display in memory instead, so your iPad connects over USB-C or Wi-Fi and the Mac mini gets a real desktop again.', 'macOS menuntut ada layar dulu sebelum Sidecar mau jalan — itu akar masalah kenapa Mac mini tanpa monitor harus pakai colokan HDMI dummy. Maccar membuat layar Retina di memori, jadi iPad tersambung lewat USB-C atau Wi-Fi dan Mac mini Anda punya desktop lagi.'],
@@ -50,13 +57,11 @@
     'features.three.title': ['Updates stay verified', 'Update tetap terverifikasi'],
     'features.three.text': ['Check for Updates validates the manifest, the SHA-256 digest, the bundle identifier, and the code signature before staging.', 'Check for Updates memeriksa manifest, digest SHA-256, bundle identifier, dan tanda tangan kode sebelum menyiapkan update.'],
     'donate.title': ['Maccar saved you a dummy plug. Buy it a coffee.', 'Maccar menghemat satu colokan dummy. Traktir kopi, yuk.'],
-    'donate.lead': ['Maccar is free software under GPL-3.0 and always will be. There is no paywall, no license key, and no upsell — a donation goes straight to notarization fees, an Apple Developer account, and the time that keeps the reconnect logic honest.', 'Maccar adalah perangkat lunak bebas berlisensi GPL-3.0, dan akan selalu begitu. Tidak ada paywall, tidak ada license key, tidak ada upsell — donasi Anda langsung ke biaya notarisasi, akun Apple Developer, dan waktu yang membuat logika reconnect-nya tetap benar.'],
-    'donate.point.one': ['Every release is signed and notarized by Apple — a paid program.', 'Setiap rilis ditandatangani dan dinotarisasi Apple — program berbayar.'],
-    'donate.point.two': ['No ads, no telemetry, no account, nothing to opt out of.', 'Tanpa iklan, tanpa telemetri, tanpa akun, tidak ada yang perlu dinonaktifkan.'],
-    'donate.point.three': ['Donating is optional and changes nothing about what you get.', 'Donasi sepenuhnya opsional dan tidak mengubah apa pun yang Anda dapat.'],
+    'donate.lead': ['Maccar is free software under GPL-3.0 and always will be. No paywall, no license key, no upsell. A donation goes straight to the Apple Developer program and the notarization that keeps every download opening without a warning.', 'Maccar adalah perangkat lunak bebas berlisensi GPL-3.0, dan akan selalu begitu. Tanpa paywall, tanpa license key, tanpa upsell. Donasi Anda langsung ke program Apple Developer dan notarisasi yang membuat setiap unduhan terbuka tanpa peringatan.'],
+    'donate.fine': ['There is no account to create and nothing to cancel. This button is the entire commercial relationship.', 'Tidak ada akun yang harus dibuat dan tidak ada yang perlu dibatalkan. Tombol ini adalah keseluruhan hubungan komersialnya.'],
     'donate.cta': ['Support on Trakteer', 'Dukung lewat Trakteer'],
     'donate.note': ['Opens trakteer.id in a new tab', 'Terbuka di tab baru, trakteer.id'],
-    'donate.source': ['Or star the repo instead ↗', 'Atau beri bintang di repo saja ↗'],
+    'donate.source': ['Or star the repo instead', 'Atau beri bintang di repo saja'],
     'credits.title': ['Credits', 'Kredit'],
     'credits.lead': ['Maccar stands on public CoreGraphics and Sidecar research from the macOS community.', 'Maccar berdiri di atas riset CoreGraphics dan Sidecar yang publik dari komunitas macOS.'],
     'credit.sill': ['Apple Silicon headless virtual display and iPad workflow.', 'Alur kerja layar virtual headless dan iPad di Apple Silicon.'],
@@ -234,6 +239,12 @@
     document.querySelectorAll('.lang-btn').forEach(function (button) {
       button.setAttribute('aria-pressed', String(button.getAttribute('data-lang') === state.lang));
     });
+    // The nav trigger's accessible name is translated copy, so it has to be
+    // re-applied after a language switch, not only at setup.
+    var navToggle = document.querySelector('[data-nav-toggle]');
+    if (navToggle) {
+      navToggle.setAttribute('aria-label', t(navToggle.getAttribute('aria-expanded') === 'true' ? 'nav.close' : 'nav.open'));
+    }
     document.querySelectorAll('a[data-download-link]').forEach(function (link) {
       link.setAttribute('href', downloadUrl());
     });
@@ -457,10 +468,11 @@
   // Reveal on scroll. The CSS only hides .reveal when <html> carries .js-ready, so a
   // visitor without JS (or with it disabled) still sees every section.
   //
-  // The safety net at the end matters: content is hidden by default, so any environment
-  // where IntersectionObserver never fires — a background tab, an embedded webview that
-  // reports visibilityState "hidden", a browser with the API stubbed out — would leave the
-  // whole page blank. A timer reveals everything regardless of what the observer does.
+  // The fallback below is viewport-scoped on purpose. An earlier version revealed
+  // *everything* once 1.5s passed with nothing yet visible, which is the normal state
+  // on load here: the hero intentionally holds no .reveal elements, so the observer
+  // has nothing to report until the visitor scrolls. That timer therefore re-showed
+  // the whole page before the first scroll and silently disabled the animation.
   function setupScrollReveal() {
     var targets = Array.prototype.slice.call(document.querySelectorAll('.reveal'));
     if (!targets.length) return;
@@ -474,7 +486,10 @@
       return;
     }
 
+    var observerFired = false;
+
     var observer = new IntersectionObserver(function (entries) {
+      observerFired = true;
       entries.forEach(function (entry) {
         if (!entry.isIntersecting) return;
         entry.target.classList.add('is-visible');
@@ -489,10 +504,24 @@
       observer.observe(node);
     });
 
-    // Safety net: if nothing became visible shortly after load, stop hiding content.
+    // Anything already at or above the fold becomes visible immediately. This is
+    // true whether or not the observer works, and it is what covers the case of a
+    // page opened deep in its own history (a reload mid-scroll, or a #anchor).
+    function revealInView() {
+      var limit = window.innerHeight;
+      targets.forEach(function (node) {
+        if (node.classList.contains('is-visible')) return;
+        if (node.getBoundingClientRect().top < limit) node.classList.add('is-visible');
+      });
+    }
+
+    revealInView();
+
+    // If the observer never fires, a scroll listener takes over so the page still
+    // reveals as it is read instead of staying blank below the fold.
     window.setTimeout(function () {
-      if (document.querySelector('.reveal.is-visible')) return;
-      revealAll();
+      if (observerFired) return;
+      window.addEventListener('scroll', revealInView, { passive: true });
     }, 1500);
   }
 
@@ -592,6 +621,38 @@
     window.addEventListener('scroll', sync, { passive: true });
   }
 
+  // The mobile menu panel. Opening is a class on the <nav> plus aria-expanded on
+  // the trigger; the panel itself is only reachable while open because CSS toggles
+  // visibility alongside max-height.
+  function setupNav() {
+    var toggle = document.querySelector('[data-nav-toggle]');
+    var nav = document.querySelector('[data-nav]');
+    if (!toggle || !nav) return;
+
+    function setOpen(open) {
+      nav.classList.toggle('is-open', open);
+      toggle.setAttribute('aria-expanded', String(open));
+      toggle.setAttribute('aria-label', t(open ? 'nav.close' : 'nav.open'));
+    }
+
+    toggle.addEventListener('click', function () {
+      setOpen(toggle.getAttribute('aria-expanded') !== 'true');
+    });
+
+    // Following a link must close the panel, or it stays over the content the
+    // visitor just asked for.
+    nav.addEventListener('click', function (event) {
+      if (event.target.closest('a')) setOpen(false);
+    });
+
+    document.addEventListener('keydown', function (event) {
+      if (event.key !== 'Escape') return;
+      if (toggle.getAttribute('aria-expanded') !== 'true') return;
+      setOpen(false);
+      toggle.focus();
+    });
+  }
+
   function boot() {
     var stored = readStorage();
     state.lang = stored.lang === 'id' ? 'id' : 'en';
@@ -600,6 +661,7 @@
     document.documentElement.classList.add('js-ready');
     setupTheme();
     setupLanguage();
+    setupNav();
     setupCopy();
     setupTabs();
     setupSupport();

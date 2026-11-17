@@ -33,7 +33,7 @@
   <meta name="twitter:description" content="Maccar creates a Retina virtual display in macOS memory, so Sidecar works on a Mac mini with no screen attached. No dummy HDMI plug needed." />
   <meta name="twitter:image" content="https://vidokun.github.io/Maccar/assets/maccar-logo.png" />
 
-  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="styles.css?v=20261117" />
 
   <script type="application/ld+json">
   {
@@ -174,13 +174,25 @@
         <img class="brand-logo" src="assets/maccar-logo.png" width="32" height="32" alt="" />
         <span>Maccar</span>
       </a>
+
+      <nav class="site-nav" id="site-nav" data-nav aria-label="Primary">
+        <a href="#how-it-works" data-i18n="nav.how">How it works</a>
+        <a href="#install" data-i18n="nav.install">Install</a>
+        <a href="#comparison" data-i18n="nav.compare">Compare</a>
+        <a href="#faq" data-i18n="nav.faq">FAQ</a>
+        <a href="#support" data-i18n="nav.support">Support</a>
+      </nav>
+
       <div class="header-controls">
         <div class="lang-toggle" role="group" aria-label="Language">
           <button type="button" class="lang-btn" data-lang="en" aria-pressed="true">EN</button>
           <button type="button" class="lang-btn" data-lang="id" aria-pressed="false">ID</button>
         </div>
-        <button type="button" class="btn btn-sm btn-secondary theme-toggle" data-theme-toggle aria-pressed="false" data-i18n-label="theme.label" aria-label="Switch theme"><span class="theme-icon" data-theme-icon aria-hidden="true">☀</span></button>
-        <a class="btn btn-sm btn-secondary" href="https://github.com/vidokun/Maccar" rel="noopener">GitHub</a>
+        <button type="button" class="icon-btn" data-theme-toggle aria-pressed="false" data-i18n-label="theme.label" aria-label="Switch between light and dark theme"><span class="theme-icon" data-theme-icon aria-hidden="true">☀</span></button>
+        <a class="btn btn-sm btn-secondary header-github" href="https://github.com/vidokun/Maccar" rel="noopener">GitHub</a>
+        <button type="button" class="icon-btn nav-toggle" data-nav-toggle aria-expanded="false" aria-controls="site-nav" aria-label="Open menu">
+          <span class="nav-toggle-bars" aria-hidden="true"><i></i><i></i><i></i></span>
+        </button>
       </div>
     </div>
   </header>
@@ -195,13 +207,10 @@
       </div>
       <div class="container hero-inner">
         <div class="hero-copy">
-          <span class="hero-app-icon hero-enter" style="--enter-delay: 0ms">
-            <img src="assets/maccar-logo.png" width="56" height="56" alt="Maccar app icon" />
-          </span>
-          <p class="hero-badge hero-enter" style="--enter-delay: 60ms" data-i18n="hero.badge">No monitor · No dummy plug · One iPad</p>
-          <h1 class="hero-title hero-enter" style="--enter-delay: 120ms" data-i18n="hero.title" data-i18n-html>Turn an iPad into the main monitor of a <span class="hero-title-accent">headless Mac mini</span>.</h1>
-          <p class="hero-subtitle hero-enter" style="--enter-delay: 180ms" data-i18n="hero.subtitle">macOS wants a screen before Sidecar will start — that is the whole reason a Mac mini with no monitor needs an HDMI dummy plug. Maccar puts a Retina display in memory instead, so your iPad connects over USB-C or Wi-Fi and the Mac mini gets a real desktop again.</p>
-          <div class="hero-actions hero-enter" style="--enter-delay: 240ms">
+          <p class="hero-badge hero-enter" style="--enter-delay: 0ms" data-i18n="hero.badge">No monitor · No dummy plug · One iPad</p>
+          <h1 class="hero-title hero-enter" style="--enter-delay: 60ms" data-i18n="hero.title" data-i18n-html>Turn an iPad into the main monitor of a <span class="hero-title-accent">headless Mac mini</span>.</h1>
+          <p class="hero-subtitle hero-enter" style="--enter-delay: 120ms" data-i18n="hero.subtitle">macOS wants a screen before Sidecar will start — that is the whole reason a Mac mini with no monitor needs an HDMI dummy plug. Maccar puts a Retina display in memory instead, so your iPad connects over USB-C or Wi-Fi and the Mac mini gets a real desktop again.</p>
+          <div class="hero-actions hero-enter" style="--enter-delay: 180ms">
             <a class="btn btn-primary" data-download-link href="https://github.com/vidokun/Maccar/releases/download/v1.4.2/Maccar-v1.4.2.dmg" data-i18n="hero.dmg">Download Maccar v1.4.2 (.dmg)</a>
             <a class="btn btn-secondary" href="#install" data-i18n="hero.cli">Install from Terminal</a>
           </div>
@@ -545,27 +554,21 @@
     </section>
 
     <!-- --------------------------------------------------------------- support -->
-    <section class="section" id="support">
-      <div class="container">
-        <div class="support-card reveal">
-          <div class="support-copy">
-            <span class="section-eyebrow" data-i18n="donate.eyebrow">Support</span>
-            <h2 class="support-title" data-i18n="donate.title">Maccar saved you a dummy plug. Buy it a coffee.</h2>
-            <p class="support-text" data-i18n="donate.lead">Maccar is free software under GPL-3.0 and always will be. There is no paywall, no license key, and no upsell — a donation goes straight to notarization fees, an Apple Developer account, and the time that keeps the reconnect logic honest.</p>
-            <ul class="support-list">
-              <li data-i18n="donate.point.one">Every release is signed and notarized by Apple — a paid program.</li>
-              <li data-i18n="donate.point.two">No ads, no telemetry, no account, nothing to opt out of.</li>
-              <li data-i18n="donate.point.three">Donating is optional and changes nothing about what you get.</li>
-            </ul>
-          </div>
-          <div class="support-action">
-            <a class="btn btn-primary btn-lg support-cta" data-support="trakteer" href="https://trakteer.id/vidokun/tip" target="_blank" rel="noopener">
-              <span class="support-cta-icon" aria-hidden="true">☕</span>
-              <span data-i18n="donate.cta">Support on Trakteer</span>
-            </a>
-            <p class="support-note" data-i18n="donate.note">Opens trakteer.id in a new tab</p>
-            <a class="support-source" href="https://github.com/vidokun/Maccar" target="_blank" rel="noopener" data-i18n="donate.source">Or star the repo instead ↗</a>
-          </div>
+    <section class="support-band" id="support">
+      <div class="container support-inner">
+        <div class="support-copy reveal">
+          <span class="section-eyebrow" data-i18n="donate.eyebrow">Support</span>
+          <h2 class="support-title" data-i18n="donate.title">Maccar saved you a dummy plug. Buy it a coffee.</h2>
+          <p class="support-text" data-i18n="donate.lead">Maccar is free software under GPL-3.0 and always will be. No paywall, no license key, no upsell. A donation goes straight to the Apple Developer program and the notarization that keeps every download opening without a warning.</p>
+          <p class="support-fine" data-i18n="donate.fine">There is no account to create and nothing to cancel. This button is the entire commercial relationship.</p>
+        </div>
+        <div class="support-action reveal">
+          <a class="support-cta" data-support="trakteer" href="https://trakteer.id/vidokun/tip" target="_blank" rel="noopener">
+            <span class="support-cta-label" data-i18n="donate.cta">Support on Trakteer</span>
+            <span class="support-cta-arrow" aria-hidden="true">→</span>
+          </a>
+          <p class="support-note" data-i18n="donate.note">Opens trakteer.id in a new tab</p>
+          <a class="support-source" href="https://github.com/vidokun/Maccar" target="_blank" rel="noopener" data-i18n="donate.source">Or star the repo instead</a>
         </div>
       </div>
     </section>
@@ -621,6 +624,6 @@
     </div>
   </footer>
 
-  <script src="app.js" defer></script>
+  <script src="app.js?v=20261117" defer></script>
 </body>
 </html>
