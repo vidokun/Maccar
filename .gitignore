@@ -10,6 +10,3 @@ dist/
 .claude/
 *.dmg
 *.zip
-# Topping for the Vercel build: pulled from GitHub Releases at deploy time, so a
-# stale committed copy could advertise an old version.
-docs/manifest.json

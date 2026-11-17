@@ -20,7 +20,8 @@ usage() {
 Usage: scripts/generate_manifest.sh [options]
 
 Generates build/manifest.json from the packaged Maccar.app (or scripts/Info.plist
-when no build exists). Never writes into docs/ unless --out-copy points there.
+when no build exists). Writes only inside build/ unless --out-copy names another
+path.
 
 Options:
   --help                 Show this help and exit.
