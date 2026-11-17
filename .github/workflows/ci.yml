@@ -63,11 +63,21 @@ jobs:
               for asset in ("assets/maccar-logo.png", "app.js", "styles.css"):
                   if asset not in html:
                       failures.append(f"docs/index.html does not reference {asset}")
-          for xml_file in ("docs/sitemap.xml",):
+          # The sitemap is optional: it needs an absolute production URL, which
+          # does not exist until the first Vercel deploy. Validate it only when
+          # it is present, so the template in the repository root is exercised
+          # instead of a live file being required.
+          sitemap = pathlib.Path("docs/sitemap.xml")
+          if sitemap.is_file():
               try:
-                  ElementTree.parse(xml_file)
+                  ElementTree.parse(sitemap)
               except Exception as error:  # noqa: BLE001 - report and continue
-                  failures.append(f"{xml_file}: {error}")
+                  failures.append(f"{sitemap}: {error}")
+          for template in pathlib.Path(".").glob("sitemap.xml.example"):
+              try:
+                  ElementTree.parse(template)
+              except Exception as error:  # noqa: BLE001 - report and continue
+                  failures.append(f"{template}: {error}")
           if failures:
               for failure in failures:
                   print(f"FAIL {failure}")
