@@ -107,7 +107,7 @@ jobs:
         env:
           MACCAR_UPDATE_PRIVATE_KEY: ${{ secrets.MACCAR_UPDATE_PRIVATE_KEY }}
           MACCAR_RELEASE_SUMMARY: ${{ github.event.repository.description }}
-        run: ./scripts/generate_manifest.sh --out-copy build/pages/manifest.json
+        run: ./scripts/generate_manifest.sh
 
       - name: Publish release assets
         if: ${{ github.ref_type == 'tags' }}
