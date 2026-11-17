@@ -666,14 +666,22 @@ a:hover { color: var(--accent-hover); text-decoration: underline; text-underline
 
 /* ------------------------------------------------------------- sections --- */
 
+/* A single vertical rhythm. The previous mix of 48px and 64px section padding
+   produced gaps of 112, 128, 161 and 225px between neighbouring sections, so the
+   page read as unevenly spaced rather than paced. One value now governs the
+   breathing room between every pair, with the deliberately different bands
+   (support, and the section before it) handled explicitly below. */
 .section { padding: var(--space-3xl) 0; }
-.section--tight { padding: var(--space-2xl) 0; }
 
 .section-header {
   max-width: 720px;
   margin: 0 auto var(--space-2xl);
   text-align: center;
 }
+
+/* A section lead sits closer to its heading than the content below it does, so
+   the heading and its supporting line read as one unit. */
+.section-title + .section-lead { margin-top: calc(-1 * var(--space-sm)); }
 
 .section-eyebrow {
   display: block;
@@ -714,22 +722,30 @@ a:hover { color: var(--accent-hover); text-decoration: underline; text-underline
    so a no-JS visitor still sees everything (see .js-ready on <html>).
    The travel distance and duration are deliberately not subtle: a 12px slide at
    400ms is invisible below the fold on a fast scroll, which makes the whole page
-   feel static. This is 40px over 900ms on an ease-out-expo curve. */
+   feel static. 48px over 1000ms on an ease-out-expo curve is legible without
+   becoming a performance. */
 .js-ready .reveal {
   opacity: 0;
-  transform: translateY(40px);
-  transition: opacity 900ms cubic-bezier(0.16, 1, 0.3, 1),
-              transform 900ms cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translateY(48px) scale(0.985);
+  transition: opacity 1000ms cubic-bezier(0.16, 1, 0.3, 1),
+              transform 1000ms cubic-bezier(0.16, 1, 0.3, 1);
   transition-delay: var(--reveal-delay, 0ms);
+  will-change: opacity, transform;
 }
 .js-ready .reveal.is-visible {
   opacity: 1;
   transform: none;
+  /* Once revealed, drop the compositor hint: the element is static from here. */
+  will-change: auto;
 }
 
 /* Section headers get a touch more travel than their cards, so the eye is led
-   down the page rather than everything arriving at once. */
-.js-ready .section-header.reveal { transform: translateY(56px); }
+   down the page rather than everything arriving at once.
+   Scoped to :not(.is-visible) deliberately. Written as a bare
+   `.section-header.reveal` rule this matched the visible state too (equal
+   specificity, later in the file), leaving every heading permanently 56px low
+   and skipping its transition entirely. */
+.js-ready .section-header.reveal:not(.is-visible) { transform: translateY(64px); }
 
 /* ------------------------------------------------------------- install --- */
 
@@ -805,6 +821,7 @@ a:hover { color: var(--accent-hover); text-decoration: underline; text-underline
   font-size: 17px;
   font-weight: 650;
   letter-spacing: -0.01em;
+  line-height: 1.35;
   color: var(--text-primary);
 }
 .card-title a { color: inherit; }
@@ -846,6 +863,13 @@ a:hover { color: var(--accent-hover); text-decoration: underline; text-underline
   font-size: 14px;
   font-weight: 700;
 }
+
+/* Card prose gets a little more line-height than body copy: at 15px inside a
+   341px column the default 1.65 packs five lines into a short paragraph and the
+   card reads as a wall of text. */
+.feature-card .card-text,
+.install-card .card-text,
+.credit-card .card-text { line-height: 1.7; }
 
 /* ----------------------------------------------------------- screenshots -- */
 
@@ -904,7 +928,18 @@ a:hover { color: var(--accent-hover); text-decoration: underline; text-underline
 
 /* ---------------------------------------------------------------- steps --- */
 
-.step-list { display: grid; gap: var(--space-lg); counter-reset: step; }
+/* The step cards sit in a 1072px container while their prose is capped at a
+   readable measure, which left ~390px of empty space inside every card and made
+   the section read as misaligned against its neighbours. Matching the header's
+   720px column lines the cards up with the heading and lets the text fill its
+   own card (measured: 64.9ch, 25px trailing padding, uniform heights). */
+.step-list {
+  display: grid;
+  gap: var(--space-lg);
+  counter-reset: step;
+  max-width: 720px;
+  margin-inline: auto;
+}
 
 .step {
   display: grid;
@@ -932,8 +967,8 @@ a:hover { color: var(--accent-hover); text-decoration: underline; text-underline
 }
 .step-number::before { counter-increment: step; content: counter(step, decimal-leading-zero); }
 
-.step-body h3 { margin: 0 0 var(--space-xs); font-size: 17px; font-weight: 650; }
-.step-body p { margin: 0; font-size: 15px; line-height: 1.65; color: var(--text-secondary); }
+.step-body h3 { margin: 0 0 var(--space-sm); font-size: 17px; font-weight: 650; line-height: 1.35; }
+.step-body p { margin: 0; font-size: 15px; line-height: 1.7; color: var(--text-secondary); max-width: 62ch; }
 
 /* --------------------------------------------------------------- compare -- */
 
@@ -1051,6 +1086,11 @@ a:hover { color: var(--accent-hover); text-decoration: underline; text-underline
   color: var(--text-primary);
   font-variant-numeric: tabular-nums;
 }
+
+/* The numbers scale in with the reveal rather than just fading, so the stats
+   band has a moment of its own instead of being a row of static figures. */
+.js-ready .stats.reveal { transform: translateY(48px) scale(0.94); }
+.js-ready .stats.reveal.is-visible { transform: none; }
 .stat-label { display: block; margin-top: var(--space-xs); font-size: 13px; color: var(--text-muted); }
 
 /* ------------------------------------------------------------- donate ---- */
@@ -1298,6 +1338,10 @@ a:hover { color: var(--accent-hover); text-decoration: underline; text-underline
   .device-card { transform: none !important; }
   .hero-enter { animation: none !important; opacity: 1 !important; transform: none !important; }
   .hero-title-accent { background-image: none !important; }
+  /* Without this the scale component of the stats reveal would survive and the
+     band would sit permanently shrunk. */
+  .js-ready .stats.reveal,
+  .js-ready .reveal { transform: none !important; opacity: 1 !important; }
   .hero-aurora { display: none; }
 }
 
