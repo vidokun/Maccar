@@ -63,27 +63,29 @@ the page works on the preview URL, the production URL, and a custom domain alike
 - `docs/app.js` — rewrites the canonical link to
   `window.location.origin + window.location.pathname` at runtime, so a custom
   domain produces a self-referencing canonical without a code change.
-- `docs/robots.txt` — carries no `Sitemap:` line, because a sitemap needs an
-  absolute URL that does not exist until the domain does.
+- `docs/robots.txt` — points crawlers at the sitemap on the production domain.
 
 `v1.0.0`-era URLs of the form `/Maccar/...` are 301-redirected to the equivalent
 root path by the `redirects` block in `vercel.json`.
 
-## Optional: add a sitemap after the first deploy
+## Production domain and sitemap
 
-A sitemap requires absolute URLs. `sitemap.xml.example` in the repository root is
-the template; it is deliberately not deployed.
+The site is live at **https://maccar.vidokun.com/** — a subdomain, not a path, so
+none of the nested-path problems that forced the GitHub Pages migration apply.
 
-1. Copy `sitemap.xml.example` to `docs/sitemap.xml`.
-2. Replace every `YOUR-DOMAIN` with the real domain.
-3. Append to `docs/robots.txt`:
+`docs/sitemap.xml` is committed with that absolute domain, and `docs/robots.txt`
+advertises it:
 
-   ```
-   Sitemap: https://YOUR-DOMAIN/sitemap.xml
-   ```
+```
+Sitemap: https://maccar.vidokun.com/sitemap.xml
+```
 
-4. Bump the `?v=` strings on the `styles.css` and `app.js` tags in
-   `docs/index.html`, then commit and push.
+After deploying, submit `https://maccar.vidokun.com/sitemap.xml` in Google Search
+Console and Bing Webmaster Tools. The file is static and ships with every deploy,
+so it needs no build step.
+
+If the domain ever changes, update all of `docs/sitemap.xml`, the `Sitemap:` line
+in `docs/robots.txt`, and the `?v=` strings — and keep the old domain redirecting.
 
 ## Cache busting
 
@@ -133,8 +135,14 @@ Also confirm in the GitHub repository settings that Pages is disabled
   It exits 0 even when GitHub is unreachable, because the page has an API fallback.
 - `.gitignore` — `docs/manifest.json` is ignored, so a committed copy can never
   advertise an outdated version.
-- `docs/sitemap.xml` — removed while it pointed at GitHub Pages;
-  `sitemap.xml.example` in the root replaces it until a real domain exists.
+- `docs/sitemap.xml` — now committed with the production domain
+  `maccar.vidokun.com`, replacing the earlier `sitemap.xml.example` stopgap.
+- `docs/favicon.ico` plus `docs/assets/apple-touch-icon.png`,
+  `icon-192.png`, `icon-512.png` — generated from `assets/maccar-logo.png`.
+  Vercel serves its own logo as the tab icon when no icon is found at
+  `/favicon.ico`, which is why the icon tags are root-absolute.
+- GitHub Pages — deleted via the API. `https://vidokun.github.io/Maccar/` now
+  returns 404; Vercel is the only publisher.
 
 ## Troubleshooting
 
