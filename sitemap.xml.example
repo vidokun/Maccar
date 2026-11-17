@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  TEMPLATE ONLY — this file is intentionally a .example and is NOT deployed.
+
+  A sitemap requires absolute URLs, and the Vercel production domain does not
+  exist until the first deploy. Publishing a placeholder domain would send
+  crawlers to a host that is not yours, so there is no live sitemap until you
+  add the real domain.
+
+  To activate, after your first Vercel deploy:
+    1. Copy this file to docs/sitemap.xml
+    2. Replace every YOUR-DOMAIN with the real domain (e.g. maccar.vercel.app)
+    3. Append the Sitemap line below to docs/robots.txt
+    4. Bump the ?v= strings in docs/index.html, commit, push
+
+  Sitemap: https://YOUR-DOMAIN/sitemap.xml
+-->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>https://YOUR-DOMAIN/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://YOUR-DOMAIN/"/>
+    <xhtml:link rel="alternate" hreflang="id" href="https://YOUR-DOMAIN/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://YOUR-DOMAIN/"/>
+    <lastmod>2026-11-17</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://YOUR-DOMAIN/#install</loc>
+    <lastmod>2026-11-17</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://YOUR-DOMAIN/#how-it-works</loc>
+    <lastmod>2026-11-17</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://YOUR-DOMAIN/#faq</loc>
+    <lastmod>2026-11-17</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://YOUR-DOMAIN/#comparison</loc>
+    <lastmod>2026-11-17</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://YOUR-DOMAIN/#use-cases</loc>
+    <lastmod>2026-11-17</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.6</priority>
+  </url>
+</urlset>

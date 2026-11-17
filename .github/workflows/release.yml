@@ -10,8 +10,6 @@ on:
 
 permissions:
   contents: write
-  pages: write
-  id-token: write
 
 concurrency:
   group: release-${{ github.ref }}
@@ -123,28 +121,5 @@ jobs:
             build/manifest.json
           generate_release_notes: true
 
-      - name: Stage the Pages payload
-        run: |
-          set -euo pipefail
-          mkdir -p build/pages/site
-          cp -R docs/. build/pages/site/
-          cp build/manifest.json build/pages/site/manifest.json
-
-      - name: Upload the Pages artifact
-        if: ${{ github.ref_type == 'tags' }}
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: build/pages/site
-
-  deploy-pages:
-    name: Deploy the landing page
-    needs: build
-    if: ${{ github.ref_type == 'tags' }}
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+  # The landing page deploys to Vercel from the repository root. GitHub Pages is
+  # retired, so tags no longer publish a site from this workflow.

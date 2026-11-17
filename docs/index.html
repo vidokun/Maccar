@@ -11,7 +11,10 @@
   <meta name="theme-color" content="#F8FAFC" media="(prefers-color-scheme: light)" />
   <meta name="theme-color" content="#0B0E14" media="(prefers-color-scheme: dark)" />
   <meta name="color-scheme" content="light dark" />
-  <link rel="canonical" href="https://vidokun.github.io/Maccar/" />
+  <!-- Relative so the page is correct on the Vercel preview, the production
+       domain, and any custom domain without a rebuild. app.js rewrites this to
+       an absolute self-referencing URL at runtime. -->
+  <link rel="canonical" href="/" />
   <link rel="icon" type="image/png" href="assets/maccar-logo.png" />
   <link rel="apple-touch-icon" href="assets/maccar-logo.png" />
   <link rel="preload" as="image" href="assets/screenshots/menubar-menu.png" />
@@ -20,10 +23,10 @@
   <meta property="og:site_name" content="Maccar" />
   <meta property="og:locale" content="en_US" />
   <meta property="og:locale:alternate" content="id_ID" />
-  <meta property="og:url" content="https://vidokun.github.io/Maccar/" />
+  <meta property="og:url" content="/" />
   <meta property="og:title" content="Use Your iPad as the Monitor for a Headless Mac mini — Maccar" />
   <meta property="og:description" content="No monitor, no HDMI dummy plug. Maccar gives macOS a Retina virtual display so Sidecar can turn your iPad into the only screen of a Mac mini." />
-  <meta property="og:image" content="https://vidokun.github.io/Maccar/assets/maccar-logo.png" />
+  <meta property="og:image" content="/assets/maccar-logo.png" />
   <meta property="og:image:width" content="512" />
   <meta property="og:image:height" content="512" />
   <meta property="og:image:alt" content="Maccar logo" />
@@ -31,9 +34,9 @@
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Use Your iPad as the Monitor for a Headless Mac mini" />
   <meta name="twitter:description" content="Maccar creates a Retina virtual display in macOS memory, so Sidecar works on a Mac mini with no screen attached. No dummy HDMI plug needed." />
-  <meta name="twitter:image" content="https://vidokun.github.io/Maccar/assets/maccar-logo.png" />
+  <meta name="twitter:image" content="/assets/maccar-logo.png" />
 
-  <link rel="stylesheet" href="styles.css?v=20261117b" />
+  <link rel="stylesheet" href="styles.css?v=20261117c" />
 
   <script type="application/ld+json">
   {
@@ -41,7 +44,7 @@
     "@graph": [
       {
         "@type": "SoftwareApplication",
-        "@id": "https://vidokun.github.io/Maccar/#app",
+        "@id": "/#app",
         "name": "Maccar",
         "alternateName": "Maccar for macOS",
         "description": "Native macOS menu bar app that creates a Retina virtual display so Sidecar works on a headless Mac mini without an HDMI dummy plug.",
@@ -50,12 +53,12 @@
         "operatingSystem": "macOS 14.0 or later",
         "softwareVersion": "1.4.2",
         "fileFormat": "application/x-apple-diskimage",
-        "url": "https://vidokun.github.io/Maccar/",
-        "image": "https://vidokun.github.io/Maccar/assets/maccar-logo.png",
+        "url": "/",
+        "image": "/assets/maccar-logo.png",
         "screenshot": [
-          "https://vidokun.github.io/Maccar/assets/screenshots/menubar-menu.png",
-          "https://vidokun.github.io/Maccar/assets/screenshots/about-window.png",
-          "https://vidokun.github.io/Maccar/assets/screenshots/diagnostics-logs.png"
+          "/assets/screenshots/menubar-menu.png",
+          "/assets/screenshots/about-window.png",
+          "/assets/screenshots/diagnostics-logs.png"
         ],
         "downloadUrl": "https://github.com/vidokun/Maccar/releases/download/v1.4.2/Maccar-v1.4.2.dmg",
         "installUrl": "https://github.com/vidokun/Maccar/releases/latest",
@@ -76,15 +79,15 @@
       },
       {
         "@type": "WebSite",
-        "@id": "https://vidokun.github.io/Maccar/#website",
-        "url": "https://vidokun.github.io/Maccar/",
+        "@id": "/#website",
+        "url": "/",
         "name": "Maccar",
         "inLanguage": ["en", "id"],
-        "publisher": { "@id": "https://vidokun.github.io/Maccar/#app" }
+        "publisher": { "@id": "/#app" }
       },
       {
         "@type": "FAQPage",
-        "@id": "https://vidokun.github.io/Maccar/#faq",
+        "@id": "/#faq",
         "mainEntity": [
           {
             "@type": "Question",
@@ -154,11 +157,11 @@
       },
       {
         "@type": "BreadcrumbList",
-        "@id": "https://vidokun.github.io/Maccar/#breadcrumb",
+        "@id": "/#breadcrumb",
         "itemListElement": [
-          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://vidokun.github.io/Maccar/" },
-          { "@type": "ListItem", "position": 2, "name": "Install", "item": "https://vidokun.github.io/Maccar/#install" },
-          { "@type": "ListItem", "position": 3, "name": "How it works", "item": "https://vidokun.github.io/Maccar/#how-it-works" }
+          { "@type": "ListItem", "position": 1, "name": "Home", "item": "/" },
+          { "@type": "ListItem", "position": 2, "name": "Install", "item": "/#install" },
+          { "@type": "ListItem", "position": 3, "name": "How it works", "item": "/#how-it-works" }
         ]
       }
     ]
@@ -624,6 +627,6 @@
     </div>
   </footer>
 
-  <script src="app.js?v=20261117b" defer></script>
+  <script src="app.js?v=20261117c" defer></script>
 </body>
 </html>

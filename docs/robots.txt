@@ -1,4 +1,2 @@
 User-agent: *
 Allow: /
-
-Sitemap: https://vidokun.github.io/Maccar/sitemap.xml

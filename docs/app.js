@@ -6,7 +6,6 @@
   var MANIFEST_PATH = './manifest.json';
   var RELEASE_API = 'https://api.github.com/repos/vidokun/Maccar/releases/latest';
   var REPO_URL = 'https://github.com/vidokun/Maccar';
-  var CANONICAL = 'https://vidokun.github.io/Maccar/';
   var STORAGE_KEY = 'maccar.landing';
   var SUPPORT_LINKS = { trakteer: 'https://trakteer.id/vidokun/tip', sponsors: '', kofi: '', bmc: '' };
 
@@ -221,8 +220,10 @@
     document.title = TITLES[state.lang];
     var description = document.querySelector('meta[name="description"]');
     if (description) description.setAttribute('content', DESCRIPTIONS[state.lang]);
+    // Self-referencing canonical: correct on the Vercel preview, production, and
+    // any custom domain without a rebuild. The static tag carries "/" as a fallback.
     var canonical = document.querySelector('link[rel="canonical"]');
-    if (canonical) canonical.setAttribute('href', CANONICAL);
+    if (canonical) canonical.setAttribute('href', window.location.origin + window.location.pathname);
     document.querySelectorAll('[data-i18n]').forEach(function (node) {
       var text = t(node.getAttribute('data-i18n'));
       if (!text) return;
