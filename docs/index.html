@@ -3,49 +3,172 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Maccar: Headless Sidecar, iPad as a Primary Retina Display</title>
-  <meta name="description" content="Maccar creates a Retina virtual display in macOS memory so a headless Mac mini can run Sidecar on an iPad without an HDMI dummy plug." />
-  <meta name="keywords" content="Headless Sidecar, Sidecar without monitor, Sidecar tanpa monitor, Mac mini headless iPad display, CGVirtualDisplay, macOS 14" />
+  <title>iPad as Monitor for a Headless Mac mini — Maccar</title>
+  <meta name="description" content="Use your iPad as the only monitor for a headless Mac mini. Maccar creates a Retina virtual display in macOS memory, so Sidecar works with no HDMI dummy plug and no second screen. Free, notarized, macOS 14+." />
+  <meta name="keywords" content="iPad as monitor for Mac mini, iPad as main display Mac mini, headless Mac mini, Mac mini without monitor, Mac mini no display, Sidecar without monitor, Sidecar tanpa monitor, headless Sidecar, HDMI dummy plug alternative, Mac mini headless iPad, use iPad as monitor, CGVirtualDisplay, iPad second display macOS, macOS 14, Maccar" />
   <meta name="author" content="Vido Rizki" />
-  <meta name="robots" content="index, follow" />
-  <meta name="theme-color" content="#F8FAFC" />
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
+  <meta name="theme-color" content="#F8FAFC" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#0B0E14" media="(prefers-color-scheme: dark)" />
+  <meta name="color-scheme" content="light dark" />
   <link rel="canonical" href="https://vidokun.github.io/Maccar/" />
   <link rel="icon" type="image/png" href="assets/maccar-logo.png" />
   <link rel="apple-touch-icon" href="assets/maccar-logo.png" />
+  <link rel="preload" as="image" href="assets/screenshots/menubar-menu.png" />
+
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="Maccar" />
+  <meta property="og:locale" content="en_US" />
+  <meta property="og:locale:alternate" content="id_ID" />
   <meta property="og:url" content="https://vidokun.github.io/Maccar/" />
-  <meta property="og:title" content="Maccar: Headless Sidecar, iPad as a Primary Retina Display" />
-  <meta property="og:description" content="Turn an iPad into the primary Retina display of a headless Mac mini. No HDMI dummy plug, no extra hardware." />
+  <meta property="og:title" content="Use Your iPad as the Monitor for a Headless Mac mini — Maccar" />
+  <meta property="og:description" content="No monitor, no HDMI dummy plug. Maccar gives macOS a Retina virtual display so Sidecar can turn your iPad into the only screen of a Mac mini." />
   <meta property="og:image" content="https://vidokun.github.io/Maccar/assets/maccar-logo.png" />
   <meta property="og:image:width" content="512" />
   <meta property="og:image:height" content="512" />
-  <meta name="twitter:card" content="summary" />
-  <meta name="twitter:title" content="Maccar: Headless Sidecar for macOS" />
-  <meta name="twitter:description" content="A Retina virtual display in macOS memory, so Sidecar works on a Mac mini with no monitor attached." />
+  <meta property="og:image:alt" content="Maccar logo" />
+
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Use Your iPad as the Monitor for a Headless Mac mini" />
+  <meta name="twitter:description" content="Maccar creates a Retina virtual display in macOS memory, so Sidecar works on a Mac mini with no screen attached. No dummy HDMI plug needed." />
   <meta name="twitter:image" content="https://vidokun.github.io/Maccar/assets/maccar-logo.png" />
+
   <link rel="stylesheet" href="styles.css" />
-  <script type="application/ld+json">{
+
+  <script type="application/ld+json">
+  {
     "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    "name": "Maccar",
-    "description": "Native macOS menu bar app that creates a Retina virtual display so Sidecar works on a headless Mac mini without an HDMI dummy plug.",
-    "applicationCategory": "UtilitiesApplication",
-    "applicationSubCategory": "Remote Desktop",
-    "operatingSystem": "macOS 14.0 or later",
-    "softwareVersion": "1.4.2",
-    "url": "https://vidokun.github.io/Maccar/",
-    "image": "https://vidokun.github.io/Maccar/assets/maccar-logo.png",
-    "downloadUrl": "https://github.com/vidokun/Maccar/releases/download/v1.4.2/Maccar-v1.4.2.dmg",
-    "license": "https://www.gnu.org/licenses/gpl-3.0.html",
-    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-    "author": { "@type": "Person", "name": "Vido Rizki", "url": "https://vidokun.com" }
-  }</script>
+    "@graph": [
+      {
+        "@type": "SoftwareApplication",
+        "@id": "https://vidokun.github.io/Maccar/#app",
+        "name": "Maccar",
+        "alternateName": "Maccar for macOS",
+        "description": "Native macOS menu bar app that creates a Retina virtual display so Sidecar works on a headless Mac mini without an HDMI dummy plug.",
+        "applicationCategory": "UtilitiesApplication",
+        "applicationSubCategory": "Remote Desktop",
+        "operatingSystem": "macOS 14.0 or later",
+        "softwareVersion": "1.4.2",
+        "fileFormat": "application/x-apple-diskimage",
+        "url": "https://vidokun.github.io/Maccar/",
+        "image": "https://vidokun.github.io/Maccar/assets/maccar-logo.png",
+        "screenshot": [
+          "https://vidokun.github.io/Maccar/assets/screenshots/menubar-menu.png",
+          "https://vidokun.github.io/Maccar/assets/screenshots/about-window.png",
+          "https://vidokun.github.io/Maccar/assets/screenshots/diagnostics-logs.png"
+        ],
+        "downloadUrl": "https://github.com/vidokun/Maccar/releases/download/v1.4.2/Maccar-v1.4.2.dmg",
+        "installUrl": "https://github.com/vidokun/Maccar/releases/latest",
+        "softwareHelp": "https://github.com/vidokun/Maccar#readme",
+        "license": "https://www.gnu.org/licenses/gpl-3.0.html",
+        "isAccessibleForFree": true,
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD", "availability": "https://schema.org/InStock" },
+        "author": { "@type": "Person", "name": "Vido Rizki", "url": "https://vidokun.com" },
+        "featureList": [
+          "Retina virtual display created in macOS memory",
+          "No HDMI dummy plug required",
+          "Automatic reconnect on USB-C attach",
+          "Resolution presets for iPad mini, Air, Pro and 16:9",
+          "Multiple registered iPads with explicit switching",
+          "Signed with a Developer ID certificate and notarized by Apple",
+          "Verified in-app updates with SHA-256 and manifest checks"
+        ]
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://vidokun.github.io/Maccar/#website",
+        "url": "https://vidokun.github.io/Maccar/",
+        "name": "Maccar",
+        "inLanguage": ["en", "id"],
+        "publisher": { "@id": "https://vidokun.github.io/Maccar/#app" }
+      },
+      {
+        "@type": "FAQPage",
+        "@id": "https://vidokun.github.io/Maccar/#faq",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "Does Maccar let me use Sidecar on a Mac mini with no monitor attached?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Yes. Apple requires an active display before Sidecar will start, which is why a headless Mac mini normally needs an HDMI dummy plug. Maccar creates a Retina virtual display in macOS memory instead, so Sidecar sees a real display and your iPad connects over USB-C or Wi-Fi."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Do I still need an HDMI dummy plug with Maccar?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "No. Maccar replaces the dummy plug with a CGVirtualDisplay allocated in software. Nothing needs to be plugged into the HDMI port, and nothing extra needs to be bought."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Which macOS versions and Macs are supported?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "macOS 14.0 or newer. Maccar uses CGVirtualDisplay plus SidecarCore, so it works on both Apple Silicon and Intel Macs that can run macOS 14."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Is Maccar signed and notarized, or will Gatekeeper block it?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Every release is signed with an Apple Developer ID certificate and notarized by Apple. macOS opens it on double-click without the cannot-be-verified warning, and each release publishes a SHA-256 checksum that the installer verifies before installing."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Does Maccar connect over Wi-Fi as well as USB-C?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Both work, but USB-C is the reliable path for a headless setup. Maccar reacts to physical USB attach and checks that an iPad is actually present before it calls connect, so it never issues a connection for a device that is not there."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Can I register more than one iPad?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Yes. Devices are identified by Sidecar's stable identifier rather than their name, so two iPads with the same name stay distinct, renaming one does not retarget the app, and Forget genuinely removes it. Switching between registered iPads is an explicit Menu Bar action."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Why does the first reconnect after unplugging still show one alert?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Sidecar restarts its display agent on every replug and refuses connections until that agent is ready. Maccar retries automatically and reconnects in about eight seconds without any manual step, but that first attempt can raise a single Sidecar alert. This is documented as a known limitation rather than hidden."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "Is Maccar free and open source?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Yes. Maccar is free software under the GNU General Public License v3.0, and the full source is on GitHub."
+            }
+          }
+        ]
+      },
+      {
+        "@type": "BreadcrumbList",
+        "@id": "https://vidokun.github.io/Maccar/#breadcrumb",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://vidokun.github.io/Maccar/" },
+          { "@type": "ListItem", "position": 2, "name": "Install", "item": "https://vidokun.github.io/Maccar/#install" },
+          { "@type": "ListItem", "position": 3, "name": "How it works", "item": "https://vidokun.github.io/Maccar/#how-it-works" }
+        ]
+      }
+    ]
+  }
+  </script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
 
-  <header class="site-header">
+  <header class="site-header" data-header>
     <div class="container header-inner">
       <a class="brand" href="#main">
         <img class="brand-logo" src="assets/maccar-logo.png" width="32" height="32" alt="" />
@@ -56,51 +179,145 @@
           <button type="button" class="lang-btn" data-lang="en" aria-pressed="true">EN</button>
           <button type="button" class="lang-btn" data-lang="id" aria-pressed="false">ID</button>
         </div>
-        <button type="button" class="btn btn-sm btn-secondary" data-theme-toggle aria-pressed="false" aria-label="Switch theme" data-i18n-label="theme.label" data-i18n="theme.label">Theme</button>
+        <button type="button" class="btn btn-sm btn-secondary theme-toggle" data-theme-toggle aria-pressed="false" data-i18n-label="theme.label" aria-label="Switch theme"><span class="theme-icon" data-theme-icon aria-hidden="true">☀</span></button>
         <a class="btn btn-sm btn-secondary" href="https://github.com/vidokun/Maccar" rel="noopener">GitHub</a>
       </div>
     </div>
   </header>
 
   <main id="main">
+    <!-- ------------------------------------------------------------------ hero -->
     <section class="hero">
+      <div class="hero-aurora" aria-hidden="true">
+        <span class="aurora-blob aurora-blob--one"></span>
+        <span class="aurora-blob aurora-blob--two"></span>
+        <span class="aurora-blob aurora-blob--three"></span>
+      </div>
       <div class="container hero-inner">
-        <p class="hero-badge" data-i18n="hero.badge">Headless Sidecar for macOS 14+</p>
-        <h1 class="hero-title" data-i18n="hero.title">Running a headless Mac mini without a monitor? Turn your iPad into a primary Retina display.</h1>
-        <p class="hero-subtitle" data-i18n="hero.subtitle">Apple needs a display before Sidecar will start. Maccar creates a Retina screen in macOS memory instead, so your iPad connects over USB-C or Wi-Fi with no HDMI dummy plug.</p>
-        <div class="hero-actions">
-          <a class="btn btn-primary" data-download-link href="https://github.com/vidokun/Maccar/releases/download/v1.4.2/Maccar-v1.4.2.dmg" data-i18n="hero.dmg">Download Maccar v1.4.2 (.dmg)</a>
-          <a class="btn btn-secondary" href="#install" data-i18n="hero.cli">Install from Terminal</a>
-        </div>
-        <p class="hero-meta">
-          <span data-release-status aria-busy="true" data-i18n="status.loading">Checking for the latest release...</span>
-        </p>
-        <div class="status-banner" role="alert" data-release-alert hidden>
-          <span data-i18n="alert.text">Release lookup is unavailable right now. The v1.4.2 download below is still verified.</span>
-          <span class="footer-links">
-            <button type="button" class="btn btn-sm btn-secondary" data-retry data-i18n="alert.retry">Retry</button>
-            <a class="btn btn-sm btn-secondary" data-download-link href="https://github.com/vidokun/Maccar/releases/download/v1.4.2/Maccar-v1.4.2.dmg" data-i18n="alert.link">Get v1.4.2</a>
+        <div class="hero-copy">
+          <span class="hero-app-icon hero-enter" style="--enter-delay: 0ms">
+            <img src="assets/maccar-logo.png" width="56" height="56" alt="Maccar app icon" />
           </span>
+          <p class="hero-badge hero-enter" style="--enter-delay: 60ms" data-i18n="hero.badge">No monitor · No dummy plug · One iPad</p>
+          <h1 class="hero-title hero-enter" style="--enter-delay: 120ms" data-i18n="hero.title" data-i18n-html>Turn an iPad into the main monitor of a <span class="hero-title-accent">headless Mac mini</span>.</h1>
+          <p class="hero-subtitle hero-enter" style="--enter-delay: 180ms" data-i18n="hero.subtitle">macOS wants a screen before Sidecar will start — that is the whole reason a Mac mini with no monitor needs an HDMI dummy plug. Maccar puts a Retina display in memory instead, so your iPad connects over USB-C or Wi-Fi and the Mac mini gets a real desktop again.</p>
+          <div class="hero-actions hero-enter" style="--enter-delay: 240ms">
+            <a class="btn btn-primary" data-download-link href="https://github.com/vidokun/Maccar/releases/download/v1.4.2/Maccar-v1.4.2.dmg" data-i18n="hero.dmg">Download Maccar v1.4.2 (.dmg)</a>
+            <a class="btn btn-secondary" href="#install" data-i18n="hero.cli">Install from Terminal</a>
+          </div>
+          <p class="hero-meta hero-enter" style="--enter-delay: 300ms">
+            <span data-release-status aria-busy="true" data-i18n="status.loading">Checking for the latest release...</span>
+            <span class="dot" aria-hidden="true">·</span>
+            <span data-i18n="hero.meta.trust">Notarized by Apple · GPL-3.0 · Free</span>
+          </p>
+          <div class="status-banner" role="alert" data-release-alert hidden>
+            <span data-i18n="alert.text">Release lookup is unavailable right now. The v1.4.2 download below is still verified.</span>
+            <span class="footer-links">
+              <button type="button" class="btn btn-sm btn-secondary" data-retry data-i18n="alert.retry">Retry</button>
+              <a class="btn btn-sm btn-secondary" data-download-link href="https://github.com/vidokun/Maccar/releases/download/v1.4.2/Maccar-v1.4.2.dmg" data-i18n="alert.link">Get v1.4.2</a>
+            </span>
+          </div>
+        </div>
+
+        <div class="hero-visual" data-tilt>
+          <div class="device-card">
+            <img src="assets/screenshots/menubar-menu.png" width="1004" height="914" alt="Maccar Menu Bar menu showing connection status, virtual display resolution presets, and update controls" />
+            <span class="device-card-glare" aria-hidden="true"></span>
+          </div>
+          <span class="float-chip float-chip--one"><span class="dot-live" aria-hidden="true"></span>Connected: VPad</span>
+          <span class="float-chip float-chip--two" data-i18n="hero.chip.retina">Retina · 1440×946</span>
+          <span class="float-chip float-chip--three" data-i18n="hero.chip.usb">USB-C attach detected</span>
         </div>
       </div>
     </section>
 
+    <!-- --------------------------------------------------------------- problem -->
+    <section class="section section--tight" id="problem">
+      <div class="container">
+        <div class="section-header reveal">
+          <span class="section-eyebrow" data-i18n="problem.eyebrow">The problem</span>
+          <h2 class="section-title" data-i18n="problem.title">A Mac mini with no monitor cannot start Sidecar</h2>
+          <p class="section-lead" data-i18n="problem.lead">macOS wants a display before it will hand a screen to Sidecar. That single requirement is what sends people looking for a dummy HDMI plug — and why an iPad alone is not enough out of the box.</p>
+        </div>
+        <div class="grid-3">
+          <article class="feature-card reveal">
+            <p class="feature-icon" aria-hidden="true">01</p>
+            <h3 class="card-title" data-i18n="problem.one.title">The display requirement</h3>
+            <p class="card-text" data-i18n="problem.one.text">Sidecar extends a display. With nothing attached, there is nothing to extend, so the connection never becomes available — even though the iPad is sitting right there.</p>
+          </article>
+          <article class="feature-card reveal">
+            <p class="feature-icon" aria-hidden="true">02</p>
+            <h3 class="card-title" data-i18n="problem.two.title">The dummy plug tax</h3>
+            <p class="card-text" data-i18n="problem.two.text">The usual workaround is a headless HDMI adapter that pretends to be a monitor. It works, but it costs money, occupies a port, and adds one more thing that can fail silently.</p>
+          </article>
+          <article class="feature-card reveal">
+            <p class="feature-icon" aria-hidden="true">03</p>
+            <h3 class="card-title" data-i18n="problem.three.title">The reconnection loop</h3>
+            <p class="card-text" data-i18n="problem.three.text">Even with a display present, a sleeping or unplugged iPad turns into a stream of failed connection attempts. Without a deliberate retry model the app turns into an alert generator.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ------------------------------------------------------------ how it works -->
+    <section class="section" id="how-it-works">
+      <div class="container">
+        <div class="section-header reveal">
+          <span class="section-eyebrow" data-i18n="how.eyebrow">How it works</span>
+          <h2 class="section-title" data-i18n="how.title">A Retina display that exists only in memory</h2>
+          <p class="section-lead" data-i18n="how.lead">No hardware, no virtual machine, no second Mac. Maccar asks macOS for a display object, waits until the system treats it as usable, then lets Sidecar do its job.</p>
+        </div>
+        <div class="step-list">
+          <article class="step reveal">
+            <span class="step-number" aria-hidden="true"></span>
+            <div class="step-body">
+              <h3 data-i18n="how.one.title">Allocate the virtual display</h3>
+              <p data-i18n="how.one.text">Maccar creates a CGVirtualDisplay in memory with a Retina-class resolution. macOS registers it exactly like a monitor, so every window server API behaves normally.</p>
+            </div>
+          </article>
+          <article class="step reveal">
+            <span class="step-number" aria-hidden="true"></span>
+            <div class="step-body">
+              <h3 data-i18n="how.two.title">Verify and switch resolution in place</h3>
+              <p data-i18n="how.two.text">Each mode is checked with CGDisplayModeIsUsableForDesktopGUI before it is offered, then applied with CGConfigureDisplayWithDisplayMode so an active iPad session is not torn down by a resolution change.</p>
+            </div>
+          </article>
+          <article class="step reveal">
+            <span class="step-number" aria-hidden="true"></span>
+            <div class="step-body">
+              <h3 data-i18n="how.three.title">Connect the iPad through Sidecar</h3>
+              <p data-i18n="how.three.text">With a usable display present, Maccar asks Sidecar to connect to your registered iPad over USB-C or Wi-Fi, then mirrors the iPad onto the virtual screen so the Mac mini has a primary display again.</p>
+            </div>
+          </article>
+          <article class="step reveal">
+            <span class="step-number" aria-hidden="true"></span>
+            <div class="step-body">
+              <h3 data-i18n="how.four.title">Hold on through sleep, unplug and lid close</h3>
+              <p data-i18n="how.four.text">A USB attach hook notices the cable coming back, a presence check makes sure the iPad is really there before connecting, and failures are classified so one transient hiccup does not disable automatic recovery.</p>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- --------------------------------------------------------------- install -->
     <section class="section" id="install">
       <div class="container">
-        <div class="section-header">
+        <div class="section-header reveal">
+          <span class="section-eyebrow" data-i18n="install.eyebrow">Install</span>
           <h2 class="section-title" data-i18n="install.title">Two ways to install, both verified</h2>
           <p class="section-lead" data-i18n="install.lead">The installer checks macOS 14+, the SHA-256 digest, and the code signature before it touches /Applications.</p>
         </div>
-        <div class="code-wrap">
+        <div class="code-wrap reveal">
           <pre><code id="install-command">curl -fsSL https://raw.githubusercontent.com/vidokun/Maccar/main/install.sh | sh</code></pre>
           <button type="button" class="copy-btn" data-copy-target="install-command" data-i18n="copy.label" data-i18n-label="copy.aria" aria-label="Copy installer command">Copy</button>
         </div>
-        <div class="install-grid">
-          <article class="install-card">
+        <div class="grid-2">
+          <article class="install-card reveal">
             <h3 class="card-title" data-i18n="install.cli.title">One-line terminal installer</h3>
             <p class="card-text" data-i18n="install.cli.text">No Xcode and no Command Line Tools. Add --dry-run to preview the checks, --version to pin a release, or --prefix to pick another folder.</p>
           </article>
-          <article class="install-card">
+          <article class="install-card reveal">
             <h3 class="card-title" data-i18n="install.dmg.title">Disk image</h3>
             <p class="card-text" data-i18n="install.dmg.text">Open the image, drag Maccar.app into Applications, then launch it. Later releases arrive through Check for Updates in the menu bar.</p>
             <p class="card-text"><a data-download-link href="https://github.com/vidokun/Maccar/releases/download/v1.4.2/Maccar-v1.4.2.dmg" data-i18n="install.dmg.cta">Download Maccar-v1.4.2.dmg</a></p>
@@ -109,109 +326,285 @@
       </div>
     </section>
 
+    <!-- ------------------------------------------------------------ comparison -->
+    <section class="section" id="comparison">
+      <div class="container">
+        <div class="section-header reveal">
+          <span class="section-eyebrow" data-i18n="compare.eyebrow">Compare</span>
+          <h2 class="section-title" data-i18n="compare.title">Against the ways people solve this today</h2>
+          <p class="section-lead" data-i18n="compare.lead">A dummy plug works. Buying a monitor works. Both cost money and neither reconnects for you.</p>
+        </div>
+        <div class="reveal" style="overflow-x:auto;">
+          <table class="compare">
+            <thead>
+              <tr>
+                <th scope="col" data-i18n="compare.col.approach">Approach</th>
+                <th scope="col" data-i18n="compare.col.cost">Extra hardware</th>
+                <th scope="col" data-i18n="compare.col.screen">Actual screen</th>
+                <th scope="col" data-i18n="compare.col.auto">Reconnects itself</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">Maccar</th>
+                <td><span class="pill-yes" data-i18n="compare.none">None</span></td>
+                <td><span class="pill-yes" data-i18n="compare.yes">Yes</span></td>
+                <td><span class="pill-yes" data-i18n="compare.yes">Yes</span></td>
+              </tr>
+              <tr>
+                <th scope="row" data-i18n="compare.row.dummy">HDMI dummy plug</th>
+                <td data-i18n="compare.req.adapter">An adapter</td>
+                <td><span class="pill-no" data-i18n="compare.no">No</span></td>
+                <td><span class="pill-no" data-i18n="compare.no">No</span></td>
+              </tr>
+              <tr>
+                <th scope="row" data-i18n="compare.row.monitor">Spare monitor</th>
+                <td data-i18n="compare.req.monitor">A whole display</td>
+                <td><span class="pill-yes" data-i18n="compare.yes">Yes</span></td>
+                <td><span class="pill-no" data-i18n="compare.no">No</span></td>
+              </tr>
+              <tr>
+                <th scope="row" data-i18n="compare.row.vnc">Headless VNC only</th>
+                <td><span class="pill-yes" data-i18n="compare.none">None</span></td>
+                <td><span class="pill-no" data-i18n="compare.no">No</span></td>
+                <td><span class="pill-no" data-i18n="compare.no">No</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ------------------------------------------------------------ screenshots -->
     <section class="section" id="screenshots">
       <div class="container">
-        <div class="section-header">
+        <div class="section-header reveal">
+          <span class="section-eyebrow" data-i18n="shots.eyebrow">Gallery</span>
           <h2 class="section-title" data-i18n="shots.title">What it looks like on the Mac</h2>
           <p class="section-lead" data-i18n="shots.lead">Menu bar controls, the about window, and rotating diagnostics.</p>
         </div>
-        <div class="tablist" role="tablist" aria-label="Screenshots">
+        <div class="tablist reveal" role="tablist" aria-label="Screenshots">
           <button type="button" class="tab-btn" role="tab" id="tab-menubar" aria-controls="panel-menubar" aria-selected="true" data-i18n="tab.menubar">Menu bar</button>
           <button type="button" class="tab-btn" role="tab" id="tab-about" aria-controls="panel-about" aria-selected="false" tabindex="-1" data-i18n="tab.about">About</button>
           <button type="button" class="tab-btn" role="tab" id="tab-logs" aria-controls="panel-logs" aria-selected="false" tabindex="-1" data-i18n="tab.logs">Diagnostics</button>
         </div>
-        <div class="screenshot-frame">
+        <div class="screenshot-frame reveal">
           <div role="tabpanel" id="panel-menubar" aria-labelledby="tab-menubar" tabindex="0">
-            <img src="assets/screenshots/menubar-menu.png" width="960" height="600" loading="lazy" data-i18n-label="shot.menubar" alt="Maccar menu bar menu with display presets and update controls" />
+            <img src="assets/screenshots/menubar-menu.png" width="1004" height="914" loading="lazy" data-i18n-label="shot.menubar" alt="Maccar menu bar menu with display presets and update controls" />
             <p class="screenshot-caption" data-i18n="shot.menubar">Status, resolution presets, and update controls in one menu.</p>
           </div>
           <div role="tabpanel" id="panel-about" aria-labelledby="tab-about" tabindex="0" hidden>
-            <img src="assets/screenshots/about-window.png" width="960" height="600" loading="lazy" data-i18n-label="shot.about" alt="Maccar about window showing the GPL-3.0 attribution" />
+            <img src="assets/screenshots/about-window.png" width="1104" height="1256" loading="lazy" data-i18n-label="shot.about" alt="Maccar about window showing the GPL-3.0 attribution" />
             <p class="screenshot-caption" data-i18n="shot.about">Version, attribution, and the GPL-3.0 notice.</p>
           </div>
           <div role="tabpanel" id="panel-logs" aria-labelledby="tab-logs" tabindex="0" hidden>
-            <img src="assets/screenshots/diagnostics-logs.png" width="960" height="600" loading="lazy" data-i18n-label="shot.logs" alt="Maccar diagnostics window showing the rotating log file" />
+            <img src="assets/screenshots/diagnostics-logs.png" width="1504" height="1080" loading="lazy" data-i18n-label="shot.logs" alt="Maccar diagnostics window showing the rotating log file" />
             <p class="screenshot-caption" data-i18n="shot.logs">Rotating logs, capped at 512 KB on disk.</p>
           </div>
         </div>
       </div>
     </section>
 
-    <section class="section">
+    <!-- --------------------------------------------------------------- features -->
+    <section class="section" id="features">
       <div class="container">
-        <div class="section-header">
+        <div class="section-header reveal">
+          <span class="section-eyebrow" data-i18n="features.eyebrow">Features</span>
           <h2 class="section-title" data-i18n="features.title">Built for a Mac mini with no keyboard and no monitor</h2>
+          <p class="section-lead" data-i18n="features.lead">Every one of these exists because a headless machine cannot ask a human to click something.</p>
         </div>
         <div class="grid-3">
-          <article class="feature-card">
+          <article class="feature-card reveal">
             <p class="feature-icon" aria-hidden="true">01</p>
             <h3 class="card-title" data-i18n="features.one.title">No dummy hardware</h3>
             <p class="card-text" data-i18n="features.one.text">CGVirtualDisplay allocates a Retina screen in memory, so Sidecar finds a display to extend or mirror.</p>
           </article>
-          <article class="feature-card">
+          <article class="feature-card reveal">
             <p class="feature-icon" aria-hidden="true">02</p>
             <h3 class="card-title" data-i18n="features.two.title">Survives sleep and unplug</h3>
             <p class="card-text" data-i18n="features.two.text">A 750 ms USB attach hook wakes the session again, while repeated -200 failures back off instead of storming.</p>
           </article>
-          <article class="feature-card">
+          <article class="feature-card reveal">
             <p class="feature-icon" aria-hidden="true">03</p>
             <h3 class="card-title" data-i18n="features.three.title">Updates stay verified</h3>
             <p class="card-text" data-i18n="features.three.text">Check for Updates validates the manifest, the SHA-256 digest, the bundle identifier, and the code signature before staging.</p>
           </article>
+          <article class="feature-card reveal">
+            <p class="feature-icon" aria-hidden="true">04</p>
+            <h3 class="card-title" data-i18n="features.four.title">Several iPads, told apart properly</h3>
+            <p class="card-text" data-i18n="features.four.text">Devices are keyed on Sidecar's stable identifier, not their name. Two iPads called the same thing stay distinct, and renaming one cannot retarget the app.</p>
+          </article>
+          <article class="feature-card reveal">
+            <p class="feature-icon" aria-hidden="true">05</p>
+            <h3 class="card-title" data-i18n="features.five.title">Presets that cannot fail</h3>
+            <p class="card-text" data-i18n="features.five.text">Resolutions the active display cannot actually use are filtered out of the menu, so a preset never appears only to fail when clicked.</p>
+          </article>
+          <article class="feature-card reveal">
+            <p class="feature-icon" aria-hidden="true">06</p>
+            <h3 class="card-title" data-i18n="features.six.title">Diagnostics you can paste</h3>
+            <p class="card-text" data-i18n="features.six.text">Copy Diagnostics puts version, macOS build, launch-at-login state, connected iPads and the log path on the clipboard — with your home folder shortened to ~/.</p>
+          </article>
         </div>
       </div>
     </section>
 
+    <!-- ----------------------------------------------------------------- stats -->
+    <section class="section section--tight">
+      <div class="container">
+        <div class="stats reveal">
+          <div class="stat">
+            <span class="stat-value" data-count-to="10" data-count-suffix="+">0</span>
+            <span class="stat-label" data-i18n="stats.presets">Virtual display presets</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value" data-count-to="512" data-count-suffix=" KB">0</span>
+            <span class="stat-label" data-i18n="stats.logcap">Rotating log cap</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value" data-count-to="0">0</span>
+            <span class="stat-label" data-i18n="stats.price">Price, forever</span>
+          </div>
+          <div class="stat">
+            <span class="stat-value" data-count-to="100" data-count-suffix="%">0</span>
+            <span class="stat-label" data-i18n="stats.notarized">Releases notarized</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------------------------------------------------------------- uses -->
+    <section class="section" id="use-cases">
+      <div class="container">
+        <div class="section-header reveal">
+          <span class="section-eyebrow" data-i18n="uses.eyebrow">Who this is for</span>
+          <h2 class="section-title" data-i18n="uses.title">Setups where a monitor is a nuisance</h2>
+        </div>
+        <div class="grid-2">
+          <article class="card reveal">
+            <h3 class="card-title" data-i18n="uses.one.title">The headless home server</h3>
+            <p class="card-text" data-i18n="uses.one.text">A Mac mini in a cupboard running builds, backups or media. You want to look at it from an iPad on the sofa, not carry a monitor to it.</p>
+          </article>
+          <article class="card reveal">
+            <h3 class="card-title" data-i18n="uses.two.title">The travelling desk</h3>
+            <p class="card-text" data-i18n="uses.two.text">A Mac mini in a bag and an iPad in a case. Nothing else. Maccar turns that into a complete computer with one cable.</p>
+          </article>
+          <article class="card reveal">
+            <h3 class="card-title" data-i18n="uses.three.title">The kiosk and demo Mac</h3>
+            <p class="card-text" data-i18n="uses.three.text">A machine that must boot and show something without anyone attaching a screen. The virtual display is there from the start.</p>
+          </article>
+          <article class="card reveal">
+            <h3 class="card-title" data-i18n="uses.four.title">The second Mac you rarely touch</h3>
+            <p class="card-text" data-i18n="uses.four.text">A build machine that only needs a screen twice a week. Maccar gives it one on demand and gets out of the way when you unplug.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ------------------------------------------------------------------ faq -->
+    <section class="section" id="faq">
+      <div class="container">
+        <div class="section-header reveal">
+          <span class="section-eyebrow" data-i18n="faq.eyebrow">FAQ</span>
+          <h2 class="section-title" data-i18n="faq.title">Questions people actually ask</h2>
+        </div>
+        <div class="faq reveal">
+          <details open>
+            <summary data-i18n="faq.one.q">Does Maccar let me use Sidecar on a Mac mini with no monitor attached?</summary>
+            <div class="faq-body"><p data-i18n="faq.one.a">Yes. Apple requires an active display before Sidecar will start, which is why a headless Mac mini normally needs an HDMI dummy plug. Maccar creates a Retina virtual display in macOS memory instead, so Sidecar sees a real display and your iPad connects over USB-C or Wi-Fi.</p></div>
+          </details>
+          <details>
+            <summary data-i18n="faq.two.q">Do I still need an HDMI dummy plug with Maccar?</summary>
+            <div class="faq-body"><p data-i18n="faq.two.a">No. Maccar replaces the dummy plug with a CGVirtualDisplay allocated in software. Nothing needs to be plugged into the HDMI port, and nothing extra needs to be bought.</p></div>
+          </details>
+          <details>
+            <summary data-i18n="faq.three.q">Which macOS versions and Macs are supported?</summary>
+            <div class="faq-body"><p data-i18n="faq.three.a">macOS 14.0 or newer. Maccar uses CGVirtualDisplay plus SidecarCore, so it works on both Apple Silicon and Intel Macs that can run macOS 14.</p></div>
+          </details>
+          <details>
+            <summary data-i18n="faq.four.q">Is Maccar signed and notarized, or will Gatekeeper block it?</summary>
+            <div class="faq-body"><p data-i18n="faq.four.a">Every release is signed with an Apple Developer ID certificate and notarized by Apple. macOS opens it on double-click without the cannot-be-verified warning, and each release publishes a SHA-256 checksum that the installer verifies before installing.</p></div>
+          </details>
+          <details>
+            <summary data-i18n="faq.five.q">Does Maccar connect over Wi-Fi as well as USB-C?</summary>
+            <div class="faq-body"><p data-i18n="faq.five.a">Both work, but USB-C is the reliable path for a headless setup. Maccar reacts to physical USB attach and checks that an iPad is actually present before it calls connect, so it never issues a connection for a device that is not there.</p></div>
+          </details>
+          <details>
+            <summary data-i18n="faq.six.q">Can I register more than one iPad?</summary>
+            <div class="faq-body"><p data-i18n="faq.six.a">Yes. Devices are identified by Sidecar's stable identifier rather than their name, so two iPads with the same name stay distinct, renaming one does not retarget the app, and Forget genuinely removes it. Switching between registered iPads is an explicit Menu Bar action.</p></div>
+          </details>
+          <details>
+            <summary data-i18n="faq.seven.q">Why does the first reconnect after unplugging still show one alert?</summary>
+            <div class="faq-body"><p data-i18n="faq.seven.a">Sidecar restarts its display agent on every replug and refuses connections until that agent is ready. Maccar retries automatically and reconnects in about eight seconds without any manual step, but that first attempt can raise a single Sidecar alert. This is documented as a known limitation rather than hidden.</p></div>
+          </details>
+          <details>
+            <summary data-i18n="faq.eight.q">Is Maccar free and open source?</summary>
+            <div class="faq-body"><p data-i18n="faq.eight.a">Yes. Maccar is free software under the GNU General Public License v3.0, and the full source is on GitHub.</p></div>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <!-- --------------------------------------------------------------- support -->
     <section class="section" id="support">
       <div class="container">
-        <div class="section-header">
-          <h2 class="section-title" data-i18n="donate.title">Donate &amp; Support</h2>
-          <p class="section-lead" data-i18n="donate.lead">Maccar is free and GPL-3.0. If it saved you a dummy plug purchase, you can chip in for the next release.</p>
-        </div>
-        <div class="donate-grid">
-          <a class="donate-card" data-support="trakteer" href="https://trakteer.id/vidokun/tip" rel="noopener">
-            <h3 class="card-title">Trakteer</h3>
-            <span class="badge-status badge-active" data-i18n="donate.active">Available now</span>
-            <span data-i18n="donate.trakteer.cta">Send a tip</span>
-          </a>
-          <div class="donate-card is-disabled" data-support="sponsors" aria-disabled="true">
-            <h3 class="card-title">GitHub Sponsors</h3>
-            <span class="badge-status badge-soon" data-i18n="donate.soon">Coming soon</span>
-            <span data-i18n="donate.soon.cta">Not open yet</span>
+        <div class="support-card reveal">
+          <div class="support-copy">
+            <span class="section-eyebrow" data-i18n="donate.eyebrow">Support</span>
+            <h2 class="support-title" data-i18n="donate.title">Maccar saved you a dummy plug. Buy it a coffee.</h2>
+            <p class="support-text" data-i18n="donate.lead">Maccar is free software under GPL-3.0 and always will be. There is no paywall, no license key, and no upsell — a donation goes straight to notarization fees, an Apple Developer account, and the time that keeps the reconnect logic honest.</p>
+            <ul class="support-list">
+              <li data-i18n="donate.point.one">Every release is signed and notarized by Apple — a paid program.</li>
+              <li data-i18n="donate.point.two">No ads, no telemetry, no account, nothing to opt out of.</li>
+              <li data-i18n="donate.point.three">Donating is optional and changes nothing about what you get.</li>
+            </ul>
           </div>
-          <div class="donate-card is-disabled" data-support="kofi" aria-disabled="true">
-            <h3 class="card-title">Ko-fi</h3>
-            <span class="badge-status badge-soon" data-i18n="donate.soon">Coming soon</span>
-            <span data-i18n="donate.soon.cta">Not open yet</span>
-          </div>
-          <div class="donate-card is-disabled" data-support="bmc" aria-disabled="true">
-            <h3 class="card-title">Buy Me a Coffee</h3>
-            <span class="badge-status badge-soon" data-i18n="donate.soon">Coming soon</span>
-            <span data-i18n="donate.soon.cta">Not open yet</span>
+          <div class="support-action">
+            <a class="btn btn-primary btn-lg support-cta" data-support="trakteer" href="https://trakteer.id/vidokun/tip" target="_blank" rel="noopener">
+              <span class="support-cta-icon" aria-hidden="true">☕</span>
+              <span data-i18n="donate.cta">Support on Trakteer</span>
+            </a>
+            <p class="support-note" data-i18n="donate.note">Opens trakteer.id in a new tab</p>
+            <a class="support-source" href="https://github.com/vidokun/Maccar" target="_blank" rel="noopener" data-i18n="donate.source">Or star the repo instead ↗</a>
           </div>
         </div>
       </div>
     </section>
 
-    <section class="section">
+    <!-- --------------------------------------------------------------- credits -->
+    <section class="section" id="credits">
       <div class="container">
-        <div class="section-header">
+        <div class="section-header reveal">
+          <span class="section-eyebrow" data-i18n="credits.eyebrow">Credits</span>
           <h2 class="section-title" data-i18n="credits.title">Credits</h2>
           <p class="section-lead" data-i18n="credits.lead">Maccar stands on public CoreGraphics and Sidecar research from the macOS community.</p>
         </div>
-        <div class="credits-grid">
-          <article class="credit-card">
+        <div class="grid-3">
+          <article class="credit-card reveal">
             <h3 class="card-title"><a href="https://github.com/Saffsanity/sill" rel="noopener">Saffsanity/sill</a></h3>
             <p class="card-text" data-i18n="credit.sill">Apple Silicon headless virtual display and iPad workflow.</p>
           </article>
-          <article class="credit-card">
+          <article class="credit-card reveal">
             <h3 class="card-title"><a href="https://github.com/adamkpn/vdisplay" rel="noopener">adamkpn/vdisplay</a></h3>
             <p class="card-text" data-i18n="credit.vdisplay">Private CGVirtualDisplay bridging patterns.</p>
           </article>
-          <article class="credit-card">
+          <article class="credit-card reveal">
             <h3 class="card-title"><a href="https://github.com/balook/headless-sidecar" rel="noopener">balook/headless-sidecar</a></h3>
             <p class="card-text" data-i18n="credit.sidecar">SidecarCore framework exploration and SidecarLauncher.</p>
           </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------------------------------------------------------------- call -->
+    <section class="section section--tight">
+      <div class="container">
+        <div class="callout reveal">
+          <h2 data-i18n="call.title">Give your Mac mini a screen without buying one</h2>
+          <p data-i18n="call.text">Download the disk image, drag it to Applications, and plug in your iPad. The first launch needs no configuration.</p>
+          <div class="hero-actions">
+            <a class="btn btn-primary" data-download-link href="https://github.com/vidokun/Maccar/releases/download/v1.4.2/Maccar-v1.4.2.dmg" data-i18n="call.cta">Download Maccar</a>
+            <a class="btn btn-secondary" href="https://github.com/vidokun/Maccar" rel="noopener" data-i18n="call.source">View the source</a>
+          </div>
         </div>
       </div>
     </section>
@@ -223,7 +616,7 @@
       <div class="footer-links">
         <a href="https://github.com/vidokun/Maccar/blob/main/LICENSE" rel="noopener" data-i18n="footer.license">License</a>
         <a href="https://github.com/vidokun/Maccar" rel="noopener">GitHub</a>
-        <span data-i18n="footer.author">Built by Vido Rizki</span>
+        <a href="https://vidokun.com" rel="noopener" data-i18n="footer.author">Built by Vido Rizki</a>
       </div>
     </div>
   </footer>
