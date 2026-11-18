@@ -79,6 +79,12 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
         DeviceWatcher.shared.onReachableDevicesChange = { [weak self] devices in
             Task { @MainActor [weak self] in self?.handleReachableDevicesChange(devices) }
         }
+        // Its own channel: the watcher is already in `.waitingForDevice` when the cable goes in, so
+        // no status change fires. Without this, launching first and plugging in second never
+        // offered the iPad at all.
+        DeviceWatcher.shared.onUSBDeviceAttached = { [weak self] in
+            Task { @MainActor [weak self] in self?.handleUSBReattach() }
+        }
     }
 
     private func handleWatcherStatusChange(_ status: DeviceWatcherStatus) {
@@ -181,26 +187,28 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
         let known = Set(registry.devices.map(\.identifier))
         let candidates = ScanCandidates.unknown(reachable: reachable, registeredIdentifiers: known)
 
-        guard let candidate = candidates.first else {
+        guard !candidates.isEmpty else {
+            let names = registry.devices.map(\.name).joined(separator: ", ")
             showAlert(title: "Already Registered",
-                      message: "The connected iPad is already in your list. Choose it from Target iPad Device.")
-            return
-        }
-        if candidates.count > 1 {
-            // Two unknown iPads on one cable set is ambiguous, and guessing would register the
-            // wrong device. The picker keeps the choice explicit.
-            let picker = NSAlert()
-            picker.messageText = "Which iPad should Maccar use?"
-            picker.informativeText = "More than one unregistered iPad is reachable. Pick the one you are using."
-            for candidate in candidates { picker.addButton(withTitle: candidate.name) }
-            picker.addButton(withTitle: "Cancel")
-            let index = picker.runModal().rawValue - NSApplication.ModalResponse.alertFirstButtonReturn.rawValue
-            guard index >= 0, index < candidates.count else { return }
-            register(candidates[index])
+                      message: names.isEmpty
+                        ? "No iPad is available to register."
+                        : "Every reachable iPad is already registered (\(names)). Choose one from Target iPad Device.")
             return
         }
 
-        register(candidate)
+        // Always show what can be registered, even when there is only one — the user asked to see
+        // the list rather than have a single device registered silently. With two or more this is
+        // also what keeps the choice explicit instead of guessing.
+        let picker = NSAlert()
+        picker.messageText = "Register iPad"
+        picker.informativeText = candidates.count == 1
+            ? "This iPad is connected. Register it for Maccar to use?"
+            : "More than one iPad is available. Pick the one you are using."
+        for candidate in candidates { picker.addButton(withTitle: candidate.name) }
+        picker.addButton(withTitle: "Cancel")
+        let index = picker.runModal().rawValue - NSApplication.ModalResponse.alertFirstButtonReturn.rawValue
+        guard index >= 0, index < candidates.count else { return }
+        register(candidates[index])
     }
 
     /// The one place a device is adopted into the registry, whichever door led here.

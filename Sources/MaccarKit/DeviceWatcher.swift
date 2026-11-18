@@ -43,6 +43,13 @@ public final class DeviceWatcher: @unchecked Sendable {
         var cachedReachableDevices: [String] = []
         var onStatusChange: (@Sendable (DeviceWatcherStatus) -> Void)?
         var onReachableDevicesChange: (@Sendable ([String]) -> Void)?
+        /// Fires on every USB attach, independently of whether the status changed.
+        ///
+        /// A status change cannot carry this event: the watcher is usually already in
+        /// `.waitingForDevice` when the cable goes in, so the status is identical and no
+        /// callback fires. The field log of 2026-11-18 showed two "USB iPad attach detected"
+        /// lines with no registration prompt after either, for exactly that reason.
+        var onUSBDeviceAttached: (@Sendable () -> Void)?
     }
 
     public static let shared = DeviceWatcher(
@@ -93,6 +100,12 @@ public final class DeviceWatcher: @unchecked Sendable {
     public var onReachableDevicesChange: (@Sendable ([String]) -> Void)? {
         get { stateLock.withLock { $0.onReachableDevicesChange } }
         set { stateLock.withLock { $0.onReachableDevicesChange = newValue } }
+    }
+
+    /// Every USB attach, whether or not the status changed. See the note on the state field.
+    public var onUSBDeviceAttached: (@Sendable () -> Void)? {
+        get { stateLock.withLock { $0.onUSBDeviceAttached } }
+        set { stateLock.withLock { $0.onUSBDeviceAttached = newValue } }
     }
 
     internal init(
@@ -293,6 +306,10 @@ public final class DeviceWatcher: @unchecked Sendable {
             MaccarLogger.shared.info("DeviceWatcher", "USB iPad attach detected; \(note)")
         }
         if let nextStatus = result.status, let callback = result.callback { DispatchQueue.main.async { callback(nextStatus) } }
+        // Always reported, even when the status did not change — see the note on the state field.
+        if !result.isStopped, let attach = stateLock.withLock({ $0.onUSBDeviceAttached }) {
+            DispatchQueue.main.async { attach() }
+        }
         if result.shouldTick { queue.async { [weak self] in self?.tick() } }
     }
 
