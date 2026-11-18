@@ -92,6 +92,16 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
         if cachedAvailableModes.isEmpty { refreshCachesInBackground() }
     }
 
+    /// A cable came back. Any "Not Now" from before it is stale, so the prompt may ask again.
+    ///
+    /// Called from the same attach notification that wakes the reconnect path, which is what makes
+    /// "dismiss lasts for the session" true — the previous build checked an `offered` mark that
+    /// never expired, so one decline silenced the iPad until the app was restarted.
+    private func handleUSBReattach() {
+        unknownDeviceCoordinator.noteUSBReattach()
+        promptForUnknownDeviceIfNeeded()
+    }
+
     private func handleReachableDevicesChange(_ devices: [String]) {
         guard devices != cachedReachableDevices else { return }
         cachedReachableDevices = devices
@@ -138,15 +148,68 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
 
         let response = alert.runModal()
         guard response == .alertFirstButtonReturn else {
-            // Session-scoped: a future replug may ask again rather than silencing it forever.
+            // Scoped to this attach: a replug is a new decision point, and the menu also offers
+            // "Register Connected iPad..." so a decline is never a dead end.
             unknownDeviceCoordinator.dismiss(identifier: candidate.identifier)
-            MaccarLogger.shared.info("MenuBar", "Declined to register a newly detected iPad for this session.")
+            MaccarLogger.shared.info("MenuBar", "Declined to register a newly detected iPad for this attach.")
             return
         }
 
-        registry.register(candidate)
+        register(candidate)
+    }
+
+    /// Menu action: register whatever iPad is on the cable right now.
+    ///
+    /// This is the manual door the prompt cannot always provide — the prompt fires once per attach
+    /// and stands down while a connect is in flight, so without this a user who missed it had no
+    /// way back. It scans rather than asking for a name: the registry is keyed by Sidecar's stable
+    /// identifier, and only the device itself can supply that.
+    @objc func scanForAttachedDeviceTapped() {
+        guard !isOperationBusy else { return }
+        guard DeviceWatcher.shared.isIPadAttached else {
+            showAlert(title: "No iPad Connected",
+                      message: "Plug your iPad in with a USB-C cable, then try again. Maccar only registers an iPad it can actually connect to.")
+            return
+        }
+        guard let reachable = try? SidecarService.shared.reachableDevicesWithIdentity(), !reachable.isEmpty else {
+            showAlert(title: "No iPad Found",
+                      message: "macOS has no paired iPad to register. Connect the iPad once over USB-C and make sure Sidecar can see it.")
+            return
+        }
+
+        let registry = DeviceRegistry.shared
+        let known = Set(registry.devices.map(\.identifier))
+        let candidates = ScanCandidates.unknown(reachable: reachable, registeredIdentifiers: known)
+
+        guard let candidate = candidates.first else {
+            showAlert(title: "Already Registered",
+                      message: "The connected iPad is already in your list. Choose it from Target iPad Device.")
+            return
+        }
+        if candidates.count > 1 {
+            // Two unknown iPads on one cable set is ambiguous, and guessing would register the
+            // wrong device. The picker keeps the choice explicit.
+            let picker = NSAlert()
+            picker.messageText = "Which iPad should Maccar use?"
+            picker.informativeText = "More than one unregistered iPad is reachable. Pick the one you are using."
+            for candidate in candidates { picker.addButton(withTitle: candidate.name) }
+            picker.addButton(withTitle: "Cancel")
+            let index = picker.runModal().rawValue - NSApplication.ModalResponse.alertFirstButtonReturn.rawValue
+            guard index >= 0, index < candidates.count else { return }
+            register(candidates[index])
+            return
+        }
+
+        register(candidate)
+    }
+
+    /// The one place a device is adopted into the registry, whichever door led here.
+    private func register(_ device: SidecarDevice) {
+        let registry = DeviceRegistry.shared
+        registry.register(device)
         DeviceRegistryStore.shared.save(registry)
-        MaccarLogger.shared.info("MenuBar", "Registered a newly detected iPad.")
+        unknownDeviceCoordinator.clearDismissal(identifier: device.identifier)
+        MaccarLogger.shared.info("MenuBar", "Registered iPad '\(device.name)' (\(device.identifier)).")
         setupMenu()
     }
 

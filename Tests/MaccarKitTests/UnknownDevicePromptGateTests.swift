@@ -104,6 +104,72 @@ struct UnknownDevicePromptGateTests {
         #expect(offered == nil)
     }
 
+    /// Field report, 2026-11-18 (after v1.5.0): the user pressed "Not Now" once, and from then
+    /// on the iPad could never be registered — replugging did not bring the prompt back, so there
+    /// was no path to registration at all short of restarting the app.
+    ///
+    /// The class comment promises "a dismissal survives for the session only, so a future replug
+    /// may ask again". `offered` never expires and was checked before `dismissed`, so a single
+    /// decline silenced the device for the whole session. `dismissed` existed but was never
+    /// consulted, which is why the promise was not kept.
+    @Test("Declining once must not silence the device for the rest of the session")
+    func dismissalIsUndoneByReplug() {
+        let coordinator = UnknownDeviceCoordinator()
+        let vpad = device("VPad", id: "id-vpad")
+
+        let first = coordinator.nextUnknownDevice(
+            reachable: [vpad], registeredIdentifiers: [], currentTargetName: nil,
+            attachedIdentifiers: ["id-vpad"])
+        #expect(first != nil)
+        coordinator.dismiss(identifier: "id-vpad")
+
+        // Same session, cable pulled and plugged back in.
+        coordinator.noteUSBReattach()
+        let afterReplug = coordinator.nextUnknownDevice(
+            reachable: [vpad], registeredIdentifiers: [], currentTargetName: nil,
+            attachedIdentifiers: ["id-vpad"])
+        #expect(afterReplug != nil,
+                "a replug is a new decision point; one 'Not Now' must not be permanent")
+    }
+
+    @Test("An accepted registration needs no replug to stay registered")
+    func registeredDeviceStaysSilentAcrossReplug() {
+        let coordinator = UnknownDeviceCoordinator()
+        let vpad = device("VPad", id: "id-vpad")
+
+        _ = coordinator.nextUnknownDevice(
+            reachable: [vpad], registeredIdentifiers: [], currentTargetName: nil,
+            attachedIdentifiers: ["id-vpad"])
+        coordinator.noteUSBReattach()
+
+        // Now it is in the registry, which is what actually suppresses the prompt.
+        let offered = coordinator.nextUnknownDevice(
+            reachable: [vpad], registeredIdentifiers: ["id-vpad"], currentTargetName: nil,
+            attachedIdentifiers: ["id-vpad"])
+        #expect(offered == nil, "a registered iPad is never offered again")
+    }
+
+    @Test("A replug does not re-ask about a device that is still unregistered only by dismissal policy")
+    func replugDoesNotSpam() {
+        let coordinator = UnknownDeviceCoordinator()
+        let vpad = device("VPad", id: "id-vpad")
+        _ = coordinator.nextUnknownDevice(
+            reachable: [vpad], registeredIdentifiers: [], currentTargetName: nil,
+            attachedIdentifiers: ["id-vpad"])
+        coordinator.dismiss(identifier: "id-vpad")
+        coordinator.noteUSBReattach()
+
+        // One prompt per attach event, not one per poll: the second call in the same attach
+        // window must stay quiet.
+        _ = coordinator.nextUnknownDevice(
+            reachable: [vpad], registeredIdentifiers: [], currentTargetName: nil,
+            attachedIdentifiers: ["id-vpad"])
+        let second = coordinator.nextUnknownDevice(
+            reachable: [vpad], registeredIdentifiers: [], currentTargetName: nil,
+            attachedIdentifiers: ["id-vpad"])
+        #expect(second == nil, "the prompt fires once per attach, not on every tick")
+    }
+
     /// Documents a real limitation rather than leaving it to be rediscovered as a bug.
     ///
     /// `SidecarCoreIsIPadAttached()` reports only whether *some* iPad is on the cable; Sidecar
@@ -121,8 +187,6 @@ struct UnknownDevicePromptGateTests {
             reachable: [device("VPad", id: "id-wifi")],
             registeredIdentifiers: [],
             currentTargetName: nil,
-            // The caller can only say "these are what Sidecar listed"; it has no per-device
-            // transport to narrow with.
             attachedIdentifiers: ["id-wifi"]
         )
 

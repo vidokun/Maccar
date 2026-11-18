@@ -51,6 +51,7 @@ public final class UnknownDeviceCoordinator: @unchecked Sendable {
                 // Not plugged in: Sidecar still lists it because it was paired somewhere, but
                 // offering it would produce a prompt for hardware that cannot connect.
                 if let attached = attachedIdentifiers, !attached.contains(device.identifier) { continue }
+                if state.dismissed.contains(device.identifier) { continue }
                 if state.offered.contains(device.identifier) { continue }
                 if let target = normalizedTarget, !target.isEmpty,
                    device.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == target {
@@ -65,9 +66,26 @@ public final class UnknownDeviceCoordinator: @unchecked Sendable {
         }
     }
 
-    /// Records that the user declined this device for the rest of the session.
+    /// Records that the user declined this device for the rest of this attach.
     public func dismiss(identifier: String) {
         lock.withLock { $0.dismissed.insert(identifier) }
+    }
+
+    /// A cable was plugged back in, so every decline made before it is stale.
+    ///
+    /// "Not Now" answers the question *as it was asked*: this iPad, this time. Replugging is a new
+    /// decision point, and the class contract has always said a dismissal lasts for the session
+    /// only. Without this the decline was permanent for the whole session — the field report was a
+    /// single "Not Now" that left no way to register the iPad again short of restarting the app,
+    /// because `offered` never expired either.
+    ///
+    /// Deliberately not called on every poll: one attach event must still produce one prompt, so
+    /// this is invoked only from the USB attach notification.
+    public func noteUSBReattach() {
+        lock.withLock { state in
+            state.dismissed.removeAll()
+            state.offered.removeAll()
+        }
     }
 
     /// Clears a dismissal and the "already offered" mark for one device.

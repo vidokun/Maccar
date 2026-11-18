@@ -6,8 +6,9 @@ import Foundation
 /// own hard-coded fallback that had to be bumped in lockstep. They now share this one.
 public enum MaccarAppInfo {
     /// Used when `Bundle.main` carries no version — true for the debug binary run from
-    /// `.build/debug`, which has no `Info.plist`.
-    public static let fallbackVersion = "1.4.2"
+    /// `.build/debug`, which has no `Info.plist`. Must be bumped in lockstep with
+    /// `scripts/Info.plist`, or a debug build reports a version that was never released.
+    public static let fallbackVersion = "1.5.0"
 
     public static var shortVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? fallbackVersion

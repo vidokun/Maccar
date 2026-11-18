@@ -32,11 +32,9 @@ extension MenuBarController {
             if let targetName = registered {
                 menu.addItem(makeItem("Reconnect to '\(targetName)' Now", action: #selector(reconnectTapped), key: keyEquiv, modifiers: keyMask, isEnabled: enabled))
             } else {
-                // No "Register iPad to Connect..." item: registration happens through the
-                // "New iPad detected" prompt when an iPad is plugged in, which is the only path
-                // that can know the device's real name and identifier. A hand-typed name could
-                // not be matched reliably and wrote to a second store the menu did not read.
-                menu.addItem(makeDisabledItem("Plug in an iPad to register it"))
+                // No "Register iPad to Connect..." item: registration happens by scanning the
+                // attached iPad, not by typing a name that cannot be matched to a device identity.
+                menu.addItem(makeItem("Register Connected iPad...", action: #selector(scanForAttachedDeviceTapped), isEnabled: enabled))
             }
         }
     }
@@ -82,7 +80,7 @@ extension MenuBarController {
         targetMenu.autoenablesItems = false
         targetMenu.addItem(makeDisabledItem(registered.map { "Target: \($0)" } ?? "No iPad Registered"))
         targetMenu.addItem(NSMenuItem.separator())
-        targetMenu.addItem(makeDisabledItem("Plug in an iPad to register it"))
+        targetMenu.addItem(makeItem("Register Connected iPad...", action: #selector(scanForAttachedDeviceTapped), isEnabled: !isOperationBusy))
 
         let targetParent = NSMenuItem(title: "Target iPad Device", action: nil, keyEquivalent: "")
         targetParent.submenu = targetMenu
