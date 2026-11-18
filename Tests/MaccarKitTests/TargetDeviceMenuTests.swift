@@ -49,16 +49,28 @@ struct TargetDeviceMenuTests {
         #expect(row?.isEnabled == true, "a sleeping iPad is still the user's choice")
     }
 
-    @Test("Forget actions appear only when there is more than one device")
-    func forgetOnlyWhenMultipleDevices() {
+    /// Changed 2026-11-18 (was: "Forget actions appear only when there is more than one device").
+    ///
+    /// The old rule assumed a fallback existed — the typed-name menu item — so removing the only
+    /// registered device was recoverable. That path was removed with the registration rebuild
+    /// (the registry is now the single source of truth), which turned "Forget" into the *only*
+    /// way out of a wrong device. A user whose single device was the wrong one — the field case,
+    /// an iPad paired over Wi-Fi and registered by mistake — then had no menu action at all and
+    /// had to edit defaults by hand.
+    ///
+    /// The old worry, "forgetting the only device leaves nothing to connect to", is real but
+    /// self-healing: with the registry empty the "New iPad detected" prompt offers the attached
+    /// iPad again, so the state lasts until the next attach. Owner approved the change.
+    @Test("Every registered device offers Forget, including the only one")
+    func forgetOfferedForEveryDevice() {
         let single = TargetDeviceMenuBuilder.items(registryDevices: [device("A")], activeIdentifier: "A")
-        #expect(single.contains { $0.title.hasPrefix("Forget") } == false,
-                "forgetting the only device would leave nothing to connect to")
+        #expect(single.filter { $0.kind == .forget }.count == 1,
+                "the only registered device must be removable, or a wrong device is a dead end")
 
         let multiple = TargetDeviceMenuBuilder.items(
             registryDevices: [device("A"), device("B", name: "Other")], activeIdentifier: "A"
         )
-        #expect(multiple.filter { $0.title.hasPrefix("Forget") }.count == 2)
+        #expect(multiple.filter { $0.kind == .forget }.count == 2)
     }
 
     @Test("An empty registry explains the state instead of showing a blank submenu")

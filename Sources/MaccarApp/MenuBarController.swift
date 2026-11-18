@@ -360,11 +360,9 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
     @objc func reconnectTapped() {
         guard canDispatchReconnect(source: "menu") else { return }
         // Same resolved target the menu displays, so the button cannot act on a device the menu
-        // is not showing.
-        guard let reg = resolvedTargetName() else {
-            changeDeviceNameTapped()
-            return
-        }
+        // is not showing. Nothing to reconnect means nothing to do — the menu only offers this
+        // item when a target exists, and there is no longer a "register by typing" fallback.
+        guard let reg = resolvedTargetName() else { return }
         MaccarLogger.shared.info("MenuBar", "User triggered Reconnect for '\(reg)'.")
         DeviceWatcher.shared.reconnectNow()
         rebuildMenuSafely()
@@ -446,15 +444,6 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
         }
     }
 
-    @objc func deviceSelectedTapped(_ sender: NSMenuItem) {
-        guard let dev = sender.representedObject as? String else { return }
-        MaccarSettings.shared.registeredDeviceName = dev
-        MaccarLogger.shared.info("MenuBar", "Selected target iPad device '\(dev)'.")
-        setupMenu()
-        guard canDispatchReconnect(source: "device selection") else { return }
-        DeviceWatcher.shared.reconnectNow()
-    }
-
     /// Selects a registered device by identifier (Wave 3.3).
     ///
     /// Identifier-keyed, so a rename between sessions cannot retarget the app at a different iPad.
@@ -494,24 +483,11 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
     }
 
     @objc func changeDeviceNameTapped() {
-        let alert = NSAlert()
-        alert.messageText = "Register iPad Device Name"
-        alert.informativeText = "Enter the exact name of your iPad as shown in iOS Settings > General > About (e.g., 'VPad'):"
-        alert.alertStyle = .informational
-        alert.addButton(withTitle: "Save")
-        alert.addButton(withTitle: "Cancel")
-
-        let input = NSTextField(frame: NSRect(x: 0, y: 0, width: 220, height: 24))
-        input.stringValue = MaccarSettings.shared.registeredDeviceName ?? "VPad"
-        alert.accessoryView = input
-
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
-        let text = input.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty else { return }
-        MaccarSettings.shared.registeredDeviceName = text
-        MaccarLogger.shared.info("MenuBar", "Registered target iPad '\(text)'.")
-        setupMenu()
-        if canDispatchReconnect(source: "device registration") { DeviceWatcher.shared.reconnectNow() }
+        // Registration is no longer typed by hand: the "New iPad detected" prompt knows the
+        // device's real name and identifier, which a typed string cannot. Kept as a no-op guard
+        // rather than removed outright so an older build's menu action (or a stale selector
+        // dispatch) cannot crash on a missing method.
+        MaccarLogger.shared.info("MenuBar", "Ignoring typed-name registration; plug in an iPad to register it.")
     }
 
     @objc func toggleAutoConnect() {

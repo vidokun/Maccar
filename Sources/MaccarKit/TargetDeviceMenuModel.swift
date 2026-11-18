@@ -80,18 +80,20 @@ public enum TargetDeviceMenuBuilder {
             ))
         }
 
-        if registryDevices.count > 1 {
-            items.append(.separator)
-            for device in registryDevices {
-                let label = device.displayLabel(disambiguatingAmong: registryDevices)
-                items.append(TargetDeviceMenuItem(
-                    title: "Forget \(label)",
-                    identifier: device.identifier,
-                    isActive: false,
-                    isEnabled: isEnabled,
-                    kind: .forget
-                ))
-            }
+        // Forget is offered for every registered device, including the only one. Gating this on
+        // `count > 1` left a user whose single device was the wrong one — the field case: an iPad
+        // paired over Wi-Fi, registered by mistake, unable to connect — with no menu action at all.
+        // The registry is now the only way to register, so this is the only way to undo it.
+        items.append(.separator)
+        for device in registryDevices {
+            let label = device.displayLabel(disambiguatingAmong: registryDevices)
+            items.append(TargetDeviceMenuItem(
+                title: "Forget \(label)",
+                identifier: device.identifier,
+                isActive: false,
+                isEnabled: isEnabled,
+                kind: .forget
+            ))
         }
 
         return items

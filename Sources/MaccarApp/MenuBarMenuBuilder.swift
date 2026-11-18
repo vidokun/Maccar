@@ -32,7 +32,11 @@ extension MenuBarController {
             if let targetName = registered {
                 menu.addItem(makeItem("Reconnect to '\(targetName)' Now", action: #selector(reconnectTapped), key: keyEquiv, modifiers: keyMask, isEnabled: enabled))
             } else {
-                menu.addItem(makeItem("Register iPad to Connect...", action: #selector(changeDeviceNameTapped), isEnabled: enabled))
+                // No "Register iPad to Connect..." item: registration happens through the
+                // "New iPad detected" prompt when an iPad is plugged in, which is the only path
+                // that can know the device's real name and identifier. A hand-typed name could
+                // not be matched reliably and wrote to a second store the menu did not read.
+                menu.addItem(makeDisabledItem("Plug in an iPad to register it"))
             }
         }
     }
@@ -65,25 +69,20 @@ extension MenuBarController {
         menu.addItem(parentItem)
     }
 
+    /// Pre-registry fallback, now only a signpost.
+    ///
+    /// This used to offer "Select '<name>'" entries plus "Set Custom iPad Name..." and
+    /// "Unregister iPad". Both actions wrote `MaccarSettings.registeredDeviceName`, a store the
+    /// menu no longer reads, and a hand-typed name could not be matched to a device identity. So
+    /// it now explains how registration actually happens instead of offering a path that cannot
+    /// work. Kept as a named function because `DeviceRegistry` being empty is a real state (fresh
+    /// install, or after Forget).
     func addTargetDeviceSubmenu(registered: String?, reachableDevices: [String]) {
         let targetMenu = NSMenu()
         targetMenu.autoenablesItems = false
-        let enabled = !isOperationBusy
         targetMenu.addItem(makeDisabledItem(registered.map { "Target: \($0)" } ?? "No iPad Registered"))
         targetMenu.addItem(NSMenuItem.separator())
-
-        if reachableDevices.isEmpty {
-            targetMenu.addItem(makeDisabledItem("No reachable iPads detected"))
-        } else {
-            for device in reachableDevices {
-                let selected = registered.map { device.caseInsensitiveCompare($0) == .orderedSame } ?? false
-                targetMenu.addItem(makeItem("Select '\(device)'", action: #selector(deviceSelectedTapped(_:)), representedObject: device, isOn: selected, isEnabled: enabled))
-            }
-        }
-
-        targetMenu.addItem(NSMenuItem.separator())
-        targetMenu.addItem(makeItem("Set Custom iPad Name...", action: #selector(changeDeviceNameTapped), isEnabled: enabled))
-        if registered != nil { targetMenu.addItem(makeItem("Unregister iPad", action: #selector(clearDeviceNameTapped), isEnabled: enabled)) }
+        targetMenu.addItem(makeDisabledItem("Plug in an iPad to register it"))
 
         let targetParent = NSMenuItem(title: "Target iPad Device", action: nil, keyEquivalent: "")
         targetParent.submenu = targetMenu
