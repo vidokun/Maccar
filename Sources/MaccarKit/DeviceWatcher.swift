@@ -371,11 +371,17 @@ public final class DeviceWatcher: @unchecked Sendable {
 
     /// Adopts the configured device into an empty registry, and nothing else.
     ///
-    /// Migration path. A user upgrading from the name-keyed era has `registeredDeviceName` set and
-    /// no registry, so without this the menu would drop to "No iPad Registered" and lose their
-    /// setup. Adoption requires an **exact name match**: a fuzzy match (or "the only device
-    /// present") would silently register whatever is plugged in, and the Wave-4 "New iPad
-    /// detected" prompt would never fire for the iPad the user has not chosen yet.
+    /// Migration path for users upgrading from v1.4.x. A user from the name-keyed era has
+    /// `registeredDeviceName` set and no registry, so without this their setup would vanish on
+    /// upgrade. The comparison ignores case and surrounding whitespace, because the name was typed
+    /// by hand and "  travelpad " must still match "TravelPad"; it does **not** fuzzy-match or fall
+    /// back to "the only device present", since that would silently register whatever happens to be
+    /// plugged in and the "New iPad detected" prompt would never fire for the iPad the user has
+    /// not chosen yet.
+    ///
+    /// This is the last reader of the legacy key. It is cleared on a successful adoption; the
+    /// fallback in `MenuTargetResolver` covers the window before that happens, and both can be
+    /// removed once v1.5 has shipped.
     public func adoptActiveDeviceIfUnregistered() {
         guard let registry, registry.count == 0 else { return }
         guard let devices = try? sidecar.reachableDevicesWithIdentity(), !devices.isEmpty else { return }
@@ -392,7 +398,11 @@ public final class DeviceWatcher: @unchecked Sendable {
 
         registry.register(adopted)
         registryStore?.save(registry)
-        MaccarLogger.shared.info("DeviceWatcher", "Adopted the configured iPad into an empty device registry.")
+        // Clear the legacy string now that the registry owns this device. Leaving it set is what
+        // allowed the drift this whole change removes: the menu read one store, the prompt wrote
+        // the other, and a deletion could resurrect a device from the leftover name.
+        settings.registeredDeviceName = nil
+        MaccarLogger.shared.info("DeviceWatcher", "Adopted the configured iPad into an empty device registry; cleared the legacy name.")
     }
 
     internal func updateStatus(_ newStatus: DeviceWatcherStatus) {
