@@ -115,7 +115,9 @@ public enum TrustedReleaseURLValidator {
         let path = url.path.lowercased()
         let allowed: Bool = switch host {
         case "github.com": path == "/vidokun/maccar" || path.hasPrefix("/vidokun/maccar/")
-        case "vidokun.github.io": path == "/maccar" || path.hasPrefix("/maccar/")
+        // The project's own site, which mirrors the released manifest. Exact-host match: a
+        // lookalike such as maccar.vidokun.com.evil.com does not reach this branch.
+        case "maccar.vidokun.com": path == "/manifest.json" || path.hasPrefix("/")
         default: cdnHosts.contains(host)
         }
         guard allowed else { throw ReleaseUpdateError.invalidURL(url.absoluteString) }
@@ -170,7 +172,10 @@ public final class SystemHTTPFetcher: HTTPFetching, Sendable {
 
 public final class ReleaseUpdater: UpdateChecking, @unchecked Sendable {
     public static let primaryManifestURL = URL(string: "https://github.com/vidokun/Maccar/releases/latest/download/manifest.json")!
-    public static let fallbackManifestURL = URL(string: "https://vidokun.github.io/Maccar/manifest.json")!
+    /// The site mirrors the released manifest at its root, so this is a real second source rather
+    /// than the retired GitHub Pages path (404 since 2026-11-17). The validator's allowlist below
+    /// has to name this host too, or the fallback is rejected before it is ever fetched.
+    public static let fallbackManifestURL = URL(string: "https://maccar.vidokun.com/manifest.json")!
     private let currentVersion: AppVersion, bundleIdentifier: String, operatingSystemVersion: OperatingSystemVersion
     private let publicKeyBase64: String, expectedKeyId: String, runningTeamIdentifierProvider: @Sendable () -> String?, httpFetcher: any HTTPFetching
 

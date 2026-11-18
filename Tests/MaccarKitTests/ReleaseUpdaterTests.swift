@@ -44,7 +44,7 @@ struct ReleaseUpdaterTests {
     }
 
     private static let primaryURL = URL(string: "https://github.com/vidokun/Maccar/releases/latest/download/manifest.json")!
-    private static let mirrorURL = URL(string: "https://vidokun.github.io/Maccar/manifest.json")!
+    private static let mirrorURL = URL(string: "https://maccar.vidokun.com/manifest.json")!
     private static let zipURL = "https://github.com/vidokun/Maccar/releases/download/v1.3.1/Maccar-v1.3.1.zip"
     private static let dmgURL = "https://github.com/vidokun/Maccar/releases/download/v1.3.1/Maccar-v1.3.1.dmg"
     private static let notesURL = "https://github.com/vidokun/Maccar/releases/tag/v1.3.1"
@@ -141,8 +141,10 @@ struct ReleaseUpdaterTests {
 
     @Test("TrustedReleaseURLValidator enforces HTTPS, host allowlist, repo path, and no userinfo")
     func trustedURLAllowlistValidation() throws {
+        // The Pages host was replaced by the site's own domain when Pages was retired
+        // (2026-11-17); it now 404s, so it is deliberately no longer trusted.
         for raw in ["https://github.com/vidokun/Maccar/releases/latest/download/manifest.json",
-                    "https://vidokun.github.io/Maccar/manifest.json",
+                    "https://maccar.vidokun.com/manifest.json",
                     "https://objects.githubusercontent.com/github-production-release-asset/123",
                     "https://release-assets.githubusercontent.com/abc",
                     "https://github-releases.githubusercontent.com/xyz"] {
