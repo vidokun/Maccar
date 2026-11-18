@@ -227,7 +227,7 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
         if case .conflict(let label) = hotKey.state { conflictLabel = label }
         populateMenu(
             status: DeviceWatcher.shared.status,
-            registered: normalizedRegisteredName(settings.registeredDeviceName),
+            registered: resolvedTargetName(),
             reachableDevices: cachedReachableDevices,
             autoConnect: settings.autoConnect,
             autoMirror: settings.autoMirror,
@@ -309,8 +309,16 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
         return Set(devices.map(\.identifier))
     }
 
-    private func normalizedRegisteredName(_ raw: String?) -> String? {        guard let trimmed = raw?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else { return nil }
-        return trimmed
+    /// The one place the menu layer decides which iPad it is talking about.
+    ///
+    /// Every caller — the status line, Reconnect, Disconnect — goes through this, so they cannot
+    /// disagree with each other the way the status line and the submenu once did.
+    private func resolvedTargetName() -> String? {
+        MenuTargetResolver.targetName(
+            registryActiveName: DeviceRegistry.shared.activeDevice?.name,
+            legacyName: MaccarSettings.shared.registeredDeviceName,
+            registryHasDevices: !DeviceRegistry.shared.devices.isEmpty
+        )
     }
 
     private func activeTargetName(status: DeviceWatcherStatus, registered: String?) -> String {
@@ -351,7 +359,9 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
 
     @objc func reconnectTapped() {
         guard canDispatchReconnect(source: "menu") else { return }
-        guard let reg = normalizedRegisteredName(MaccarSettings.shared.registeredDeviceName) else {
+        // Same resolved target the menu displays, so the button cannot act on a device the menu
+        // is not showing.
+        guard let reg = resolvedTargetName() else {
             changeDeviceNameTapped()
             return
         }
@@ -389,7 +399,7 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
     @objc func disconnectTapped() {
         guard !isOperationBusy else { return }
         let status = DeviceWatcher.shared.status
-        let registered = normalizedRegisteredName(MaccarSettings.shared.registeredDeviceName)
+        let registered = resolvedTargetName()
         let targetName = activeTargetName(status: status, registered: registered)
 
         isDisconnectInFlight = true
