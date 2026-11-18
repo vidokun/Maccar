@@ -31,25 +31,6 @@ struct AttachReadinessProbeTests {
         )
     }
 
-    /// Waits for a log line instead of sleeping a fixed amount.
-    ///
-    /// A fixed 300 ms passed locally and failed on a GitHub runner: the probe posts its results
-    /// from `DispatchQueue.global`, so completion depends on scheduling, not on elapsed time. CI
-    /// caught this on the v1.5.0 release, which is exactly what a release gate is for — a timing
-    /// assertion that only holds on a fast machine is a false pass, not a test.
-    private func waitFor(
-        _ needle: String,
-        in log: Log,
-        timeout: TimeInterval = 5
-    ) async -> Bool {
-        let deadline = Date().addingTimeInterval(timeout)
-        while Date() < deadline {
-            if log.contains(needle) { return true }
-            try? await Task.sleep(nanoseconds: 20_000_000)
-        }
-        return log.contains(needle)
-    }
-
     @Test("No registered iPad means no probing and no connect")
     func missingTargetSkipsProbe() {
         let sidecar = MockSidecarService()
@@ -69,7 +50,7 @@ struct AttachReadinessProbeTests {
         let probe = makeProbe(sidecar: sidecar, log: log, clock: ManualTestClock())
 
         probe.begin(deviceName: "VPad", probeOffsets: [0, 0, 0])
-        _ = await waitFor("RESULT: first successful offset", in: log)
+        try await Task.sleep(nanoseconds: 300_000_000)
 
         #expect(sidecar.connectCalls.count == 3,
                 "one attempt per offset; got \(sidecar.connectCalls.count)")
@@ -83,9 +64,9 @@ struct AttachReadinessProbeTests {
         let probe = makeProbe(sidecar: sidecar, log: log, clock: ManualTestClock())
 
         probe.begin(deviceName: "VPad", probeOffsets: [1.2])
-        let recorded = await waitFor("probe connect SUCCESS", in: log)
+        try await Task.sleep(nanoseconds: 300_000_000)
 
-        #expect(recorded, "the probe must report a successful connect")
+        #expect(log.contains("probe connect SUCCESS"))
         #expect(log.contains("RESULT: first successful offset"))
     }
 
@@ -97,9 +78,9 @@ struct AttachReadinessProbeTests {
         let probe = makeProbe(sidecar: sidecar, log: log, clock: ManualTestClock())
 
         probe.begin(deviceName: "VPad", probeOffsets: [1.0])
-        let recorded = await waitFor("probe connect failed", in: log)
+        try await Task.sleep(nanoseconds: 300_000_000)
 
-        #expect(recorded, "a failed connect must be logged; got \(log.all)")
+        #expect(log.contains("probe connect failed"))
         #expect(!log.contains("SUCCESS"), "a failed attempt must not be reported as success")
     }
 
@@ -112,10 +93,8 @@ struct AttachReadinessProbeTests {
         probe.begin(deviceName: "VPad", probeOffsets: [5.0])
         probe.end()
         // The offset never elapses because sleep returns immediately, but the run id was bumped,
-        // so the pending attempt must have bailed before connecting. Wait for the probe's own
-        // "ended" line rather than guessing at a delay.
-        _ = await waitFor("ended", in: log)
-        try await Task.sleep(nanoseconds: 100_000_000)
+        // so the pending attempt must have bailed before connecting.
+        try await Task.sleep(nanoseconds: 300_000_000)
 
         #expect(sidecar.connectCalls.isEmpty, "a cancelled run must not connect")
     }
