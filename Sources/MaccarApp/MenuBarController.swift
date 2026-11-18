@@ -13,6 +13,8 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
     private var cachedReachableDevices: [String] = []
     /// Session-scoped memory of which unregistered iPads have already been offered (Wave 4).
     private let unknownDeviceCoordinator = UnknownDeviceCoordinator()
+    /// Research only; inert unless `maccar_attach_probe_enabled` is set. See AttachReadinessProbe.
+    private lazy var attachProbe = AttachReadinessProbe(sidecar: SidecarService.shared)
     var cachedAvailableModes: [DisplayModeInfo] = []
     private var isDisconnectInFlight: Bool = false
     private var isResolutionSwitchInFlight: Bool = false
@@ -106,6 +108,11 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
     private func handleUSBReattach() {
         unknownDeviceCoordinator.noteUSBReattach()
         promptForUnknownDeviceIfNeeded()
+        // Research instrumentation, off unless the key is set by hand. It issues real connect()
+        // calls to find when Sidecar becomes reachable, so it must never run on its own.
+        if MaccarSettings.shared.attachProbeEnabled {
+            attachProbe.begin(deviceName: resolvedTargetName() ?? MaccarSettings.shared.registeredDeviceName)
+        }
     }
 
     private func handleReachableDevicesChange(_ devices: [String]) {

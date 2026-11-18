@@ -5,7 +5,9 @@ on:
     tags:
       - "v*"
   # Dry run: builds and packages on a branch without publishing anything.
-  # Publishing steps are gated on `github.ref_type == 'tags'`.
+  # Publishing is gated on the ref starting with refs/tags/v, which is reliable on a
+  # tag push. The previous condition used github.ref_type, evaluated false there, and
+  # silently skipped publishing on every release attempt.
   workflow_dispatch:
 
 permissions:
@@ -114,7 +116,12 @@ jobs:
         run: ./scripts/generate_manifest.sh
 
       - name: Publish release assets
-        if: ${{ github.ref_type == 'tags' }}
+        # Gate on the ref itself, not `github.ref_type`. The old condition evaluated false on every
+        # tag push — v1.4.2 and v1.5.0 both reached this step as "skipped" — so the workflow had
+        # never published a release at all and the existing ones were made by hand.
+        # `startsWith(github.ref, ...)` is the documented way to test for a tag ref and does not
+        # depend on how the event exposes ref_type.
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           files: |
