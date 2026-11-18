@@ -72,7 +72,6 @@ public final class AttachReadinessProbe: @unchecked Sendable {
         }
 
         let start = now()
-        let startWallClock = Date()
         let id = lock.withLock { () -> UInt64 in
             runID &+= 1
             return runID
@@ -97,10 +96,6 @@ public final class AttachReadinessProbe: @unchecked Sendable {
                 self.sleep(step)
                 elapsed = self.now() - start
                 if self.isCurrent(id) == false { return }
-                // In tests `sleep` is a no-op and the injected clock never advances, so this loop
-                // would spin for the full 30 s of real CPU time. The window is measured in wall
-                // clock, so stop as soon as the deadline has provably passed either way.
-                if Date().timeIntervalSince(startWallClock) >= Self.observationWindow { break }
                 let reachable = (try? self.sidecar.reachableDevices()) ?? []
                 let connected = self.sidecar.connectedDevices()
                 self.log(String(
