@@ -2,6 +2,16 @@
 
 All notable changes to **Maccar** are documented in this file.
 
+## [Unreleased]
+### Fixed
+- **The "New iPad detected" prompt appeared with no iPad connected.** The candidate came from Sidecar's reachable list, which reports devices it has *paired with* — including over Wi-Fi — so on a headless Mac it offered hardware that could never connect. The prompt now requires an iPad on the cable, using the same presence check the connect path already used. *(`UnknownDeviceCoordinator`, `MenuBarController`, `DeviceWatcher.isIPadAttached`)*
+- **The menu said "No iPad Registered" right after you registered one.** Registration wrote the device registry while the status line was read from a separate stored name, so the menu contradicted its own submenu — and Reconnect and Disconnect could act on a different device than the one shown. All three now read one value, sourced from the registry. *(`MenuTargetResolver`)*
+- **Forget was unavailable with only one registered iPad**, so a device registered by mistake could not be removed from the menu at all. It is now offered for every registered device.
+
+### Changed
+- **Registering an iPad no longer means typing its name.** The "Register iPad to Connect…" and "Set Custom iPad Name…" items are gone; registration happens through the prompt when an iPad is plugged in, which knows the device's real name and identity. A typed name could not be matched reliably and wrote to a store the menu did not read.
+- **One-time action for existing users.** If your iPad was configured by typing its name in an earlier version, it is migrated automatically **only when that name matches an iPad you have plugged in**. Otherwise it is no longer adopted, and the prompt asks you to register once. Your resolution, auto-connect and login settings are untouched.
+
 ## [v1.4.2] - 2026-11-16
 ### Added
 - **Multiple iPads are now supported properly.** Devices are identified by Sidecar's stable `identifier` instead of their name, so two iPads called "VPad" are distinct, renaming one on the device no longer retargets the app, and **Forget** genuinely removes it. A registry in the Menu Bar lists every registered iPad, marks the active one, and shows `iPad16,1`-style model suffixes when two share a name. *(`DeviceRegistry`, `DeviceRegistryStore`, `SidecarDevice`)*
