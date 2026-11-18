@@ -107,13 +107,24 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
     /// may ask again.
     private func promptForUnknownDeviceIfNeeded() {
         guard !isOperationBusy else { return }
+        // A headless Mac has no screen to answer a pairing dialog on, and `connect(wired:)` refuses
+        // without a cable anyway — so asking about an iPad that is not plugged in is noise at best
+        // and a dead end at worst. Same presence source as the connect gate, so the two cannot
+        // disagree about whether an iPad is there.
+        guard DeviceWatcher.shared.isIPadAttached else { return }
         guard let reachable = try? SidecarService.shared.reachableDevicesWithIdentity() else { return }
 
         let registry = DeviceRegistry.shared
+        // Sidecar lists what it has *paired with*, which includes Wi-Fi devices, and it exposes no
+        // per-device transport, so the app cannot say which reachable identity is on the cable —
+        // only whether *some* iPad is. That boolean is the gate above; passing the reachable set
+        // here is therefore all the filtering this layer can honestly do. Naming it
+        // `attachedIdentifiers` when the list is reachable would be a lie inside the call site.
         guard let candidate = unknownDeviceCoordinator.nextUnknownDevice(
             reachable: reachable,
             registeredIdentifiers: Set(registry.devices.map(\.identifier)),
-            currentTargetName: MaccarSettings.shared.registeredDeviceName
+            currentTargetName: MaccarSettings.shared.registeredDeviceName,
+            attachedIdentifiers: Set(reachable.map(\.identifier))
         ) else { return }
 
         MaccarLogger.shared.info("MenuBar", "Offering to register a newly detected iPad.")

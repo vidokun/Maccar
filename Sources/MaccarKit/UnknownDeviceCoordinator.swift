@@ -27,12 +27,19 @@ public final class UnknownDeviceCoordinator: @unchecked Sendable {
 
     /// The device to ask about, or `nil` when there is nothing new to ask.
     ///
+    /// `reachable` is what Sidecar reports: devices it has *paired with*, over USB **or Wi-Fi**.
+    /// That is not the same set as devices that are plugged in, so `attachedIdentifiers` narrows
+    /// the offer to hardware that is physically present. Without it a headless Mac raises a
+    /// registration prompt for an iPad it cannot connect to — `connect(wired:)` would refuse and
+    /// the prompt would be unanswerable in any useful way.
+    ///
     /// `registeredIdentifiers` is the registry's contents; `currentTargetName` is what Maccar is
     /// already pointed at by name, which covers the pre-registry era where identity was typed in.
     public func nextUnknownDevice(
         reachable: [SidecarDevice],
         registeredIdentifiers: Set<String>,
-        currentTargetName: String? = nil
+        currentTargetName: String? = nil,
+        attachedIdentifiers: Set<String>? = nil
     ) -> SidecarDevice? {
         let normalizedTarget = currentTargetName?
             .trimmingCharacters(in: .whitespacesAndNewlines)
@@ -41,6 +48,9 @@ public final class UnknownDeviceCoordinator: @unchecked Sendable {
         return lock.withLock { state in
             for device in reachable {
                 if registeredIdentifiers.contains(device.identifier) { continue }
+                // Not plugged in: Sidecar still lists it because it was paired somewhere, but
+                // offering it would produce a prompt for hardware that cannot connect.
+                if let attached = attachedIdentifiers, !attached.contains(device.identifier) { continue }
                 if state.offered.contains(device.identifier) { continue }
                 if let target = normalizedTarget, !target.isEmpty,
                    device.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == target {

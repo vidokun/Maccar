@@ -79,6 +79,13 @@ public final class DeviceWatcher: @unchecked Sendable {
     public var cachedReachableDevices: [String] { stateLock.withLock { $0.cachedReachableDevices } }
     public var isManualDisconnectHold: Bool { stateLock.withLock { $0.isManualDisconnectHold } }
     public var isReconfiguringDisplay: Bool { stateLock.withLock { $0.reconfigurationDepth > 0 } }
+
+    /// Whether an iPad is on the cable right now.
+    ///
+    /// Exposed so UI that decides whether to talk about an iPad at all uses the *same* presence
+    /// source as the connect path. A second IOKit probe in the menu layer could disagree with
+    /// this one, and then the app would offer to register a device it refuses to connect to.
+    public var isIPadAttached: Bool { usbPresence.isIPadAttached() }
     public var onStatusChange: (@Sendable (DeviceWatcherStatus) -> Void)? {
         get { stateLock.withLock { $0.onStatusChange } }
         set { stateLock.withLock { $0.onStatusChange = newValue } }
