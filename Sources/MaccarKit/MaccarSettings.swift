@@ -72,15 +72,6 @@ public final class MaccarSettings: @unchecked Sendable {
         static let autoCheckUpdates = "maccar_auto_check_updates"
         static let lastUpdateCheckTimestamp = "maccar_last_update_check_timestamp"
         static let skippedVersion = "maccar_skipped_version"
-        /// Research instrumentation, off unless deliberately enabled.
-        ///
-        /// The attach probe issues real `connect()` calls to find when Sidecar becomes reachable,
-        /// and every failed one raises an Apple popup. It must therefore be opt-in and is never
-        /// written by the app itself — set it by hand while investigating:
-        ///
-        ///     defaults write com.maccar.app maccar_attach_probe_enabled -bool YES
-        ///     defaults delete com.maccar.app maccar_attach_probe_enabled   # to stop
-        static let attachProbeEnabled = "maccar_attach_probe_enabled"
     }
 
     private let defaults: UserDefaults
@@ -199,13 +190,6 @@ public final class MaccarSettings: @unchecked Sendable {
     public var autoCheckUpdates: Bool {
         get { defaults.bool(forKey: Key.autoCheckUpdates) }
         set { defaults.set(newValue, forKey: Key.autoCheckUpdates) }
-    }
-
-    /// Whether the attach readiness probe runs. Absent by default, so it stays off unless the
-    /// user set the key by hand — see `Key.attachProbeEnabled`.
-    public var attachProbeEnabled: Bool {
-        get { defaults.bool(forKey: Key.attachProbeEnabled) }
-        set { defaults.set(newValue, forKey: Key.attachProbeEnabled) }
     }
 
     public var lastUpdateCheckTimestamp: TimeInterval {
