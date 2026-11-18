@@ -113,6 +113,11 @@ DMG_SIZE="$(size_of "$DMG_PATH")"
 ZIP_URL="$DOWNLOAD_BASE/v${VERSION}/${ZIP_NAME}"
 DMG_URL="$DOWNLOAD_BASE/v${VERSION}/${DMG_NAME}"
 RELEASE_URL="$RELEASE_PAGE/tag/v${VERSION}"
+# The release dialog shows this line, so it must describe the build, not sell the
+# app. It used to default to the repository description, which meant the update
+# alert in the app displayed marketing copy; the repository description now serves
+# GitHub and search only. Override per release with MACCAR_RELEASE_SUMMARY, e.g.
+# "Fixes reconnect after sleep." Keep it to one short sentence.
 SUMMARY="${MACCAR_RELEASE_SUMMARY:-Maccar v${VERSION} (build ${BUILD_NUMBER}) for macOS ${MIN_OS} and newer.}"
 PUBLISHED_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 

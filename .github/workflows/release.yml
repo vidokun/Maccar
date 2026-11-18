@@ -103,10 +103,14 @@ jobs:
           MACCAR_UPDATE_KEY_ID: ${{ vars.MACCAR_UPDATE_KEY_ID }}
         run: ./scripts/create_dmg.sh
 
+      # Note: the in-app update alert renders releaseNotesSummary, so the summary
+      # must describe the build. The repository description is deliberately not
+      # used here — it is written for GitHub and search, not for a dialog.
+      # To set a per-release note, add a tag annotation body and reference it, or
+      # export MACCAR_RELEASE_SUMMARY in this step.
       - name: Generate the signed release manifest
         env:
           MACCAR_UPDATE_PRIVATE_KEY: ${{ secrets.MACCAR_UPDATE_PRIVATE_KEY }}
-          MACCAR_RELEASE_SUMMARY: ${{ github.event.repository.description }}
         run: ./scripts/generate_manifest.sh
 
       - name: Publish release assets
