@@ -2,15 +2,21 @@
 
 All notable changes to **Maccar** are documented in this file.
 
-## [Unreleased]
+## [v1.5.0] - 2026-11-18
+### Added
+- **"Register Connected iPad…" in the Menu Bar.** The automatic prompt fires once per attachment, so missing it left no way back. This scans whatever iPad is on the cable — you pick from a list rather than typing a name — and only the one you choose is registered.
+
 ### Fixed
+- **Opening Maccar before plugging in never offered the iPad.** The attach notification only reached the interface through a *status change*, and a running app is already waiting for a device, so the status was identical and nothing fired; plug in first, launch second, and it worked. Attachments are now reported on their own channel.
+- **"Not Now" silenced the iPad until the app restarted.** The decline was recorded and never read, while a separate "already offered" mark never expired. A replug is treated as a new decision, so the prompt can ask again and the manual item covers the rest.
 - **The "New iPad detected" prompt appeared with no iPad connected.** The candidate came from Sidecar's reachable list, which reports devices it has *paired with* — including over Wi-Fi — so on a headless Mac it offered hardware that could never connect. The prompt now requires an iPad on the cable, using the same presence check the connect path already used. *(`UnknownDeviceCoordinator`, `MenuBarController`, `DeviceWatcher.isIPadAttached`)*
 - **The menu said "No iPad Registered" right after you registered one.** Registration wrote the device registry while the status line was read from a separate stored name, so the menu contradicted its own submenu — and Reconnect and Disconnect could act on a different device than the one shown. All three now read one value, sourced from the registry. *(`MenuTargetResolver`)*
 - **Forget was unavailable with only one registered iPad**, so a device registered by mistake could not be removed from the menu at all. It is now offered for every registered device.
+- **The updater's fallback URL pointed at the retired GitHub Pages host**, which has returned 404 since the site moved. It now uses the project site's own mirror, and the updater's host allowlist accepts it.
 
 ### Changed
-- **Registering an iPad no longer means typing its name.** The "Register iPad to Connect…" and "Set Custom iPad Name…" items are gone; registration happens through the prompt when an iPad is plugged in, which knows the device's real name and identity. A typed name could not be matched reliably and wrote to a store the menu did not read.
-- **One-time action for existing users.** If your iPad was configured by typing its name in an earlier version, it is migrated automatically **only when that name matches an iPad you have plugged in**. Otherwise it is no longer adopted, and the prompt asks you to register once. Your resolution, auto-connect and login settings are untouched.
+- **Registering an iPad no longer means typing its name.** The "Register iPad to Connect…" and "Set Custom iPad Name…" items are gone; registration happens by scanning the connected iPad, which knows the device's real name and identity. A typed name could not be matched reliably and wrote to a store the menu did not read.
+- **One-time action for existing users.** If your iPad was configured by typing its name in an earlier version, it is migrated automatically **only when that name matches an iPad you have plugged in**. Otherwise it is no longer adopted, and Maccar asks you to register once — open the Menu Bar and choose **Register Connected iPad…**. Your resolution, auto-connect and login settings are untouched.
 
 ## [v1.4.2] - 2026-11-16
 ### Added
