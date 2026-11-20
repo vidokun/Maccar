@@ -77,11 +77,19 @@ struct TransientConnectFailureTests {
         let budget = DeviceWatcherBackoff.transientRetryBudget
         #expect(budget > 0, "A zero budget is the old latch-everything behaviour")
 
-        // The first `budget` transient failures leave auto-retry armed.
+        // The first `budget` transient failures leave auto-retry armed. Only the final granted
+        // retry waits long (transientRetrySecondsFinal): the last attempt must land near the
+        // measured ~35 s Sidecar warm-up, while earlier ones stay short so an ordinary replug
+        // still feels quick. With budget 3 the waits are 5 s, 5 s, 15 s.
         for attempt in 0..<budget {
             let outcome = tracker.recordFailure(error: transient, at: Date())
             #expect(!outcome.isAutoRetryPaused, "Transient attempt \(attempt + 1) must not latch")
-            #expect(outcome.interval == DeviceWatcherBackoff.transientRetrySeconds)
+            let isFinalGrantedRetry = attempt == budget - 1
+            let expected = isFinalGrantedRetry
+                ? DeviceWatcherBackoff.transientRetrySecondsFinal
+                : DeviceWatcherBackoff.transientRetrySeconds
+            #expect(outcome.interval == expected,
+                    "attempt \(attempt + 1) should wait \(expected)s, got \(outcome.interval)s")
         }
 
         // The next one exhausts the budget and latches, so a persistent transient cannot

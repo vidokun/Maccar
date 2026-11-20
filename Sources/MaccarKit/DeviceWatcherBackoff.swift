@@ -22,11 +22,28 @@ internal enum DeviceWatcherBackoff {
     /// `postDisconnectSettleSeconds`, the automatic path waited for nothing.
     static let sessionEndSettleSeconds: TimeInterval = 1.0
     /// Extra automatic attempts granted to *transport-settling* failures only.
-    /// Bounded on purpose: each failed `connect()` raises a Sidecar popup, so this is a
-    /// budget to absorb one flake, not a retry loop. One attempt keeps the worst case at
-    /// two popups; the reachability gate in `attemptReachableConnect` already prevents
-    /// this path from being reached for a genuinely absent device.
-    static let transientRetryBudget: Int = 1
+    ///
+    /// Each failed `connect()` raises a Sidecar popup, so this is a budget to absorb a slow
+    /// start, not a retry loop. It was 1 (two attempts total) until the field log of
+    /// 2026-11-19 showed that is not enough after a long idle: a single insertion at 15:59:57
+    /// failed at 6.5 s **and** at 11.8 s, then the app gave up — while a manual press at 37 s
+    /// succeeded in 0.85 s. On a headless Mac the only way back was a remote session, which is
+    /// the situation Maccar exists to avoid.
+    ///
+    /// Three attempts with an escalating wait reach ~35 s, the measured warm-up point. The
+    /// worst case costs one extra popup when the device is genuinely gone; `attemptReachableConnect`
+    /// still gates every attempt on physical presence, so an unplugged iPad spends no budget.
+    static let transientRetryBudget: Int = 3
+
+    /// Wait before the first retry. Short, because a replug that only needed a moment should
+    /// not feel slow.
+    static let transientRetrySeconds: TimeInterval = 5.0
+
+    /// Wait before the *last* retry, when the budget is nearly spent.
+    ///
+    /// The measured Sidecar warm-up after a long idle is ~35 s; 15 s here lands the final attempt
+    /// near that point instead of 5 s later, which the log already proved too early.
+    static let transientRetrySecondsFinal: TimeInterval = 15.0
     /// How long to wait after a USB attach before the first `connect()`.
     ///
     /// This does **not** need to outlast Sidecar's slowest start. The decisive factor turned out
@@ -35,7 +52,6 @@ internal enum DeviceWatcherBackoff {
     /// simply long enough for the USB enumeration to settle; `transientRetryBudget` covers the
     /// rest if it is not.
     static let usbAttachSettleSeconds: TimeInterval = 4.0
-    static let transientRetrySeconds: TimeInterval = 5.0
 
     struct FailureOutcome: Equatable, Sendable {
         let interval: TimeInterval
@@ -93,9 +109,16 @@ internal enum DeviceWatcherBackoff {
         ) -> FailureOutcome {
             let isSettling = isTransportSettlingError(error)
             let canRetry = isSettling && transientFailuresRemaining > 0
+            // The last retry waits much longer: after a long idle Sidecar was measurably not
+            // ready until ~35 s, so a short final wait only spends the budget on a doomed
+            // attempt. Earlier retries stay short so an ordinary replug still feels quick.
+            let attemptsLeftAfterThis = transientFailuresRemaining - 1
+            let retryInterval = attemptsLeftAfterThis <= 0
+                ? DeviceWatcherBackoff.transientRetrySecondsFinal
+                : DeviceWatcherBackoff.transientRetrySeconds
             return FailureOutcome(
                 interval: canRetry
-                    ? DeviceWatcherBackoff.transientRetrySeconds
+                    ? retryInterval
                     : DeviceWatcherBackoff.nonEscalatingFailureSeconds,
                 consecutiveNotFoundCount: isDeviceNotFoundError(error) ? max(0, previousNotFoundCount) + 1 : 0,
                 isAutoRetryPaused: !canRetry

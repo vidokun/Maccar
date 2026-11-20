@@ -619,7 +619,9 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
     }
 
     @objc private func quitTapped() {
-        performCleanShutdown()
+        // Teardown runs from the AppDelegate's `applicationWillTerminate`, which fires for every
+        // exit route. Doing it here too would destroy the display twice; the delegate's guard
+        // makes a double call harmless, but the single owner is clearer.
         NSApplication.shared.terminate(nil)
     }
 }

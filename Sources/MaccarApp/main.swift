@@ -2,6 +2,32 @@ import Foundation
 import AppKit
 import MaccarKit
 
+/// Runs the app's teardown for every exit route macOS offers.
+///
+/// The Menu Bar item was the only caller of `performCleanShutdown`, so quitting any other way —
+/// Cmd+Q, logout, a system restart, or a terminate from outside — left the virtual display
+/// registered with WindowServer. A user reported the result on 2026-11-20: a phantom screen in
+/// Displays settings that only a force quit cleared.
+///
+/// `applicationWillTerminate` is delivered for all of those routes, which is why the teardown
+/// lives here rather than in the menu action: a menu action can only fire for the menu.
+@MainActor
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    /// Set by `runMenuBarApp` once the controller exists. Teardown is skipped when it is nil,
+    /// so a very early terminate (before the app is fully up) cannot crash on missing state.
+    var onTerminate: (() -> Void)?
+
+    /// Guards against running twice: the menu item tears down and then calls `terminate`, which
+    /// delivers this callback. Both must be safe in either order.
+    private var didTearDown = false
+
+    func applicationWillTerminate(_ notification: Notification) {
+        guard !didTearDown else { return }
+        didTearDown = true
+        onTerminate?()
+    }
+}
+
 func printUsage() {
     print("""
     Maccar — Native Headless Virtual Display & Sidecar Manager for macOS
@@ -25,6 +51,26 @@ func printUsage() {
 /// Retained for the whole process lifetime: `SingleInstanceGuard` releases its
 /// kernel lock in `deinit`, so a local-only reference would silently void it.
 private var retainedInstanceGuard: SingleInstanceGuard?
+
+/// Keeps the AppDelegate alive for the process lifetime.
+///
+/// `NSApplication.delegate` is a weak reference, so a delegate created inside `runMenuBarApp`
+/// would be released as soon as that scope unwound and `applicationWillTerminate` would never
+/// be delivered — reintroducing exactly the bug the delegate exists to fix. Held here rather
+/// than in a file-level variable because `main.swift` is top-level code, where a global actor
+/// annotation is not allowed.
+extension AppDelegate {
+    @MainActor private static var retainer: AppDelegate?
+
+    @MainActor
+    static func install(on app: NSApplication, teardown: @escaping () -> Void) -> AppDelegate {
+        let delegate = AppDelegate()
+        delegate.onTerminate = teardown
+        app.delegate = delegate
+        retainer = delegate
+        return delegate
+    }
+}
 
 /// Ensures only one process ever runs a `DeviceWatcher`.
 ///
@@ -80,6 +126,10 @@ func runMenuBarApp() {
 
     let controller = MenuBarController()
     _ = controller
+
+    // Cover every exit route, not just the Menu Bar item. Without this, Cmd+Q and logout skip
+    // teardown and leave the virtual display behind — the reported bug.
+    _ = AppDelegate.install(on: app) { [weak controller] in controller?.performCleanShutdown() }
 
     DeviceWatcher.shared.start()
     // Populate the registry from what Sidecar already knows, so the Target iPad submenu shows

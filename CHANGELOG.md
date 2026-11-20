@@ -2,6 +2,14 @@
 
 All notable changes to **Maccar** are documented in this file.
 
+## [v1.5.1] - 2026-11-20
+### Fixed
+- **Quitting Maccar left a phantom display behind.** The virtual display was only torn down by the Menu Bar item's Quit, so Cmd+Q, logout, or a system restart skipped it and left the in-memory display registered with WindowServer — it stayed visible in Displays settings and only a force quit cleared it. Teardown now runs from `applicationWillTerminate`, which macOS delivers on every exit route. Reported by the first external user. *(`AppDelegate` in `main.swift`, `MenuBarController`)*
+- **Auto-connect gave up too early after the Mac had been idle a long time.** The transient retry budget allowed two attempts inside about 12 seconds. A field log from 2026-11-19 shows that is not enough: after a long idle, one insertion failed at 6.5 s and again at 11.8 s, the app suppressed further attempts, and a manual press at 37 s then connected in 0.85 s — Sidecar needed roughly 35 s to become connectable. Because the Mac is headless, the only route back was a remote session, which is the situation Maccar exists to avoid. The budget is now three retries with a final wait of 15 s (5 s, 5 s, 15 s), reaching the measured warm-up point; the worst case costs one extra popup, and a refusal still latches immediately with no retry. *(`DeviceWatcherBackoff`)*
+
+### Changed
+- **The Menu Bar Quit no longer tears down the display itself.** It calls `terminate`, and the single teardown owner runs from the AppDelegate's terminate callback, with a guard so a double call is harmless.
+
 ## [v1.5.0] - 2026-11-18
 ### Added
 - **"Register Connected iPad…" in the Menu Bar.** The automatic prompt fires once per attachment, so missing it left no way back. This scans whatever iPad is on the cable — you pick from a list rather than typing a name — and only the one you choose is registered.

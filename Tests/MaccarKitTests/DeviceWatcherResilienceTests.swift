@@ -70,11 +70,16 @@ struct DeviceWatcherResilienceTests {
         // bounded retry is granted rather than latching a sub-second hiccup forever.
         #expect(harness.watcher.status == .waitingForDevice(targetName: "VPad"))
 
-        // Let the retry cadence elapse: the retry runs, fails again, and this time the
-        // budget is gone, so the gate latches.
-        harness.clock.advance(by: DeviceWatcherBackoff.transientRetrySeconds)
-        harness.watcher.performTickForTesting()
-        #expect(harness.sidecar.connectCalls.count == 2)
+        // Let the retry cadence elapse once per granted attempt. The budget is 3 after the
+        // 2026-11-19 field log: two attempts could not survive a long idle, where Sidecar
+        // needed ~35 s to become connectable.
+        let budget = DeviceWatcherBackoff.transientRetryBudget
+        for _ in 0..<budget {
+            harness.clock.advance(by: DeviceWatcherBackoff.transientRetrySecondsFinal)
+            harness.watcher.performTickForTesting()
+        }
+        #expect(harness.sidecar.connectCalls.count == 1 + budget,
+                "one attempt plus one per granted retry")
         #expect(harness.watcher.status == .autoRetryPaused(targetName: "VPad"))
 
         // Exhausted budget means no further automatic attempts, ever.
@@ -82,7 +87,8 @@ struct DeviceWatcherResilienceTests {
             harness.clock.advance(by: gap)
             harness.watcher.performTickForTesting()
         }
-        #expect(harness.sidecar.connectCalls.count == 2, "the transient budget is not a retry loop")
+        #expect(harness.sidecar.connectCalls.count == 1 + budget,
+                "the transient budget is not a retry loop")
         #expect(harness.watcher.status == .autoRetryPaused(targetName: "VPad"))
     }
 

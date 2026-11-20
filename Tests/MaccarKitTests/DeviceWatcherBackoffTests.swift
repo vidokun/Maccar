@@ -100,15 +100,25 @@ struct DeviceWatcherBackoffTests {
     func recordAttemptUpdatesOnlyLastAttemptTime() {
         var tracker = DeviceWatcherBackoff.Tracker()
         let firstFailureTime = baseTime.addingTimeInterval(10.0)
+        // Spend the whole transient budget first, so the latch is genuinely set when the
+        // assertion runs. Two failures used to be enough; the budget is 3 since 2026-11-19.
+        let budget = DeviceWatcherBackoff.transientRetryBudget
         _ = tracker.recordFailure(error: makeError(code: -200), at: firstFailureTime)
-        _ = tracker.recordFailure(error: makeError(code: -200), at: firstFailureTime.addingTimeInterval(20.0))
+        for step in 0..<budget {
+            _ = tracker.recordFailure(
+                error: makeError(code: -200),
+                at: firstFailureTime.addingTimeInterval(20.0 * Double(step + 1))
+            )
+        }
+        #expect(tracker.isAutoRetryPaused, "the budget must be spent before this test means anything")
 
-        let nextAttemptTime = baseTime.addingTimeInterval(90.0)
+        let intervalBefore = tracker.interval
+        let nextAttemptTime = baseTime.addingTimeInterval(900.0)
         tracker.recordAttempt(at: nextAttemptTime)
 
         #expect(tracker.lastAttemptTime == nextAttemptTime)
-        #expect(tracker.interval == 20.0)
-        #expect(tracker.consecutiveNotFoundCount == 2)
+        #expect(tracker.interval == intervalBefore, "recording an attempt must not change the cadence")
+        #expect(tracker.consecutiveNotFoundCount > 0)
         #expect(tracker.isAutoRetryPaused, "recording an attempt must not silently re-arm the gate")
     }
 
