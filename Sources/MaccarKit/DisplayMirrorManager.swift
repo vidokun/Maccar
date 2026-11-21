@@ -30,7 +30,10 @@ public final class DisplayMirrorManager: @unchecked Sendable {
         let candidates = onlineDisplays().filter { id in
             id != 0
                 && id != excludingVirtualDisplayID
-                && CGDisplayIsBuiltin(id) == 0
+                // `!= 1`, not `== 0`: for a display it cannot classify — an iPad that is
+                // hardware-mirrored is not active — `CGDisplayIsBuiltin` reports -1. Writing
+                // `== 0` here silently dropped the iPad from the candidate list.
+                && CGDisplayIsBuiltin(id) != 1
         }
         return SidecarDisplayIdentifier.chooseIPad(candidates: candidates) { CGDisplayModelNumber($0) }
     }

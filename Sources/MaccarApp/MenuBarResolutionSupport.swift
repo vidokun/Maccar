@@ -110,7 +110,27 @@ internal enum MenuBarResolutionSupport {
 
         if let updatedVirtualDisplayID = VirtualDisplayService.shared.activeDisplayID,
            let ipad = ipadDisplayID ?? DisplayMirrorManager.shared.findIPadDisplay(excludingVirtualDisplayID: updatedVirtualDisplayID) {
-            try? DisplayMirrorManager.shared.mirror(ipadDisplay: ipad, toVirtualDisplay: updatedVirtualDisplayID)
+            // Changing a resolution must not switch mirroring back on behind the user's back.
+            // This path tore the mirror down and unconditionally rebuilt it, so a Mac with
+            // Auto-Mirror disabled still came back mirrored — measured on 2026-11-21, where
+            // the log shows "Auto-Connect set to false" followed by a fresh
+            // "Configured display 24 to mirror virtual display 22".
+            //
+            // Mirroring is restored only when the user's own switch allows it. The policy is
+            // consulted too, so this path cannot disagree with the watcher about whether the
+            // picture should be mirrored at all.
+            let shouldMirror = MirrorPolicy.decide(
+                isMirrorAlreadyApplied: false,   // we just unmirrored it above
+                autoMirror: MaccarSettings.shared.autoMirror
+            ) == .mirrorRequired
+            if shouldMirror {
+                try? DisplayMirrorManager.shared.mirror(ipadDisplay: ipad, toVirtualDisplay: updatedVirtualDisplayID)
+            } else {
+                MaccarLogger.shared.info(
+                    "MenuBar",
+                    "Auto-mirror is off; leaving the iPad unmirrored after the resolution change."
+                )
+            }
         }
 
         let updatedModes = VirtualDisplayService.shared.availableModes()

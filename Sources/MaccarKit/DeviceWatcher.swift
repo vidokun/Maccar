@@ -72,6 +72,9 @@ public final class DeviceWatcher: @unchecked Sendable {
     private let usbAttachMonitorFactory: (@Sendable (DispatchQueue, @escaping @Sendable () -> Void) -> (any USBAttachMonitoring)?)?
     internal let now: @Sendable () -> Date
     internal let sleep: @Sendable (TimeInterval) -> Void
+    /// Bounds automatic mirror retries after a failure. See `FailureBackoff` for the
+    /// 2026-11-21 loop this exists to prevent.
+    internal let failureBackoff = FailureBackoff()
     internal let stateLock = OSAllocatedUnfairLock(initialState: State())
     private let lifecycleLock = NSLock()
     private let queue = DispatchQueue(label: "com.maccar.devicewatcher", qos: .utility)
@@ -263,6 +266,8 @@ public final class DeviceWatcher: @unchecked Sendable {
     /// reach `consumeAutoConnectGate`, which is exactly the "Reconnect Now does nothing"
     /// symptom. `resetForReconnect()` clears the latch.
     public func reconnectNow() {
+        // A press is a fresh instruction, so an exhausted automatic budget is cleared.
+        failureBackoff.reset()
         let shouldDispatch = stateLock.withLock { state -> Bool in
             // The user's intent is applied unconditionally: a press is a fresh
             // instruction, so it must clear the hold and reset the retry gate even
@@ -285,6 +290,8 @@ public final class DeviceWatcher: @unchecked Sendable {
     }
 
     internal func notifyUSBDeviceAttached() {
+        // A replug is a new event, so a previously exhausted automatic budget is cleared.
+        failureBackoff.reset()
         let activeTarget = resolvedTargetName()
         let result = stateLock.withLock { state -> (status: DeviceWatcherStatus?, callback: (@Sendable (DeviceWatcherStatus) -> Void)?, shouldTick: Bool, isHeld: Bool, isStopped: Bool) in
             state.backoff.resetForUSBAttach(); state.consecutiveDetachMisses = 0
@@ -314,6 +321,8 @@ public final class DeviceWatcher: @unchecked Sendable {
     }
 
     public func setAutoConnectEnabled(_ enabled: Bool) {
+        // A settings change is a fresh instruction: clear any exhausted automatic budget.
+        failureBackoff.reset()
         let activeTarget = resolvedTargetName()
         let transition = stateLock.withLock { state -> (status: DeviceWatcherStatus?, callback: (@Sendable (DeviceWatcherStatus) -> Void)?, shouldTick: Bool) in
             state.backoff.resetForTargetOrToggleClear(); state.consecutiveDetachMisses = 0

@@ -182,12 +182,45 @@ extension DeviceWatcher {
 
     internal func syncMirrorIfNeeded(autoMirror: Bool) -> (mirrored: Bool, displayID: CGDirectDisplayID?) {
         guard autoMirror, let vdID = virtualDisplay.activeDisplayID else { return (false, nil) }
+
         guard let ipad = mirrorManager.findIPadDisplay(excludingVirtualDisplayID: vdID) else { return (false, nil) }
-        if mirrorManager.isMirrored(ipadDisplay: ipad, toVirtualDisplay: vdID) { return (true, ipad) }
+        let isMirrored = mirrorManager.isMirrored(ipadDisplay: ipad, toVirtualDisplay: vdID)
+
+        // The decision turns on whether the picture already works, not on how many displays
+        // exist. An unmirrored iPad shows an empty desktop even with a monitor beside it,
+        // because the virtual display is a rendering target rather than a desktop anyone
+        // fills. See `MirrorPolicy` for the measurement behind this.
+        let decision = MirrorPolicy.decide(isMirrorAlreadyApplied: isMirrored, autoMirror: autoMirror)
+        if isMirrored { return (true, ipad) }
+
+        if decision == .leaveUserArrangementAlone {
+            // Only reachable when auto-mirror is off: the user's own switch, honoured.
+            MaccarLogger.shared.info(
+                "DeviceWatcher",
+                "Auto-mirror is off, so the current arrangement is left alone (iPad not mirrored)."
+            )
+            return (false, ipad)
+        }
+
+        // A failed attempt must not be retried on the next tick. The 2026-11-21 incident:
+        // every failure changed the status, the status change scheduled another tick, and the
+        // watcher re-ran the same doomed resolution switch — 11 times a minute, moving the
+        // user's display each time, with no way to stop it but quitting the app.
+        guard failureBackoff.mayAttempt() else {
+            MaccarLogger.shared.warning(
+                "DeviceWatcher",
+                "Skipping automatic mirror retry: \(failureBackoff.consecutiveFailures) consecutive failures. "
+                    + "It will be attempted again after a replug, a manual reconnect, or a settings change."
+            )
+            return (false, ipad)
+        }
+
         do {
             let matchedID = try mirrorManager.autoMatchAndMirror(virtualDisplayID: vdID)
+            failureBackoff.recordSuccess()
             return (matchedID != nil, matchedID)
         } catch {
+            failureBackoff.recordFailure()
             MaccarLogger.shared.warning("DeviceWatcher", "Auto-mirror failed for display \(ipad): \(error.localizedDescription)")
             return (false, ipad)
         }

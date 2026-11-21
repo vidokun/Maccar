@@ -182,23 +182,25 @@ public final class VirtualDisplayService: @unchecked Sendable {
         target resolution: DisplayResolution,
         availableModes: [DisplayModeInfo]
     ) -> Bool {
-        let hasLogicalMode = availableModes.contains {
+        // Only ever switch to a mode the display already advertises.
+        //
+        // This used to fall back to `display.applyWidth(...)`, which calls
+        // `-[CGVirtualDisplay applySettings:]` and **replaces the display's entire mode
+        // list**. Measured on 2026-11-21: a failing switch left the display offering only
+        // the requested mode, so the next attempt moved the active mode somewhere else, and
+        // the user's resolution appeared to change on its own with no way to set it back.
+        //
+        // Absence of a usable mode is a real condition to report, not something to paper
+        // over by rewriting the display's capabilities.
+        guard availableModes.contains(where: {
             $0.usableForDesktop && $0.width == resolution.width && $0.height == resolution.height
+        }) else {
+            MaccarLogger.shared.warning(
+                "VirtualDisplay",
+                "No usable \(resolution.width)x\(resolution.height) mode is advertised by display \(display.displayID); leaving its mode list untouched."
+            )
+            return false
         }
-        let directSwitched = hasLogicalMode ? setBridgeDisplayMode(displayID: display.displayID, target: resolution) : false
-        guard !hasLogicalMode || !directSwitched else { return true }
-
-        let settingsApplied = display.applyWidth(
-            resolution.width,
-            height: resolution.height,
-            backingWidth: resolution.backingWidth,
-            backingHeight: resolution.backingHeight,
-            refreshRate: resolution.refreshRate,
-            hiDPI: resolution.hiDPI
-        )
-        guard settingsApplied else { return false }
-
-        Thread.sleep(forTimeInterval: Self.modeSettlePollInterval)
         return setBridgeDisplayMode(displayID: display.displayID, target: resolution)
     }
 
@@ -209,6 +211,9 @@ public final class VirtualDisplayService: @unchecked Sendable {
     ) -> Bool {
         var switched = initiallySwitched
         for attempt in 0..<Self.switchSettleMaxAttempts {
+            // Re-read the modes and the active mode on every pass. The earlier version reused
+            // a list captured *before* the switch was attempted, so it could judge a mode that
+            // had already taken effect as stale and report a failure.
             let modes = availableModes()
             if isDisplayActive(displayID: displayID, matching: resolution, availableModes: modes) {
                 markSwitched(resolution, displayID: displayID)
@@ -216,10 +221,6 @@ public final class VirtualDisplayService: @unchecked Sendable {
             }
             if !switched {
                 switched = setBridgeDisplayMode(displayID: displayID, target: resolution)
-                if switched && isDisplayActive(displayID: displayID, matching: resolution, availableModes: modes) {
-                    markSwitched(resolution, displayID: displayID)
-                    return true
-                }
             }
             if attempt < Self.switchSettleMaxAttempts - 1 {
                 Thread.sleep(forTimeInterval: Self.modeSettlePollInterval)
