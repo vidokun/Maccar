@@ -489,7 +489,7 @@ public final class DeviceWatcher: @unchecked Sendable {
         guard consumeAutoConnectGate(autoConnectEnabled: settings.autoConnect, at: now()) else {
             _ = fetchAndCacheReachableDevices(); return
         }
-        attemptReachableConnect(for: target, autoMirror: settings.autoMirror)
+        attemptReachableConnect(for: target)
     }
 
     private func handleManualDisconnectHold(for target: String) {
@@ -551,7 +551,7 @@ public final class DeviceWatcher: @unchecked Sendable {
             state.isManualDisconnectHold = false; state.manualReconnectRequested = false
             state.consecutiveDetachMisses = 0; state.backoff.resetForConnected()
         }
-        let (mirrored, ipadDisplayID) = syncMirrorIfNeeded(autoMirror: settings.autoMirror)
+        let (mirrored, ipadDisplayID) = syncMirrorIfNeeded()
         _ = fetchAndCacheReachableDevices()
         if case .connected(let curName, let curDisplayID, let curMirrored) = status,
            curName.caseInsensitiveCompare(target) == .orderedSame,
@@ -560,7 +560,7 @@ public final class DeviceWatcher: @unchecked Sendable {
         updateStatus(.connected(deviceName: target, displayID: ipadDisplayID, mirrored: mirrored))
     }
 
-    private func attemptReachableConnect(for target: String, autoMirror: Bool) {
+    private func attemptReachableConnect(for target: String) {
         // D6c: Sidecar lists devices it has *paired with*, not devices that are plugged in.
         // The field log on 2026-11-16 10:03 connected 3.5 s after the cable was pulled because
         // `reachableDevices()` still contained the iPad; that call raised an Apple popup and
@@ -602,7 +602,7 @@ public final class DeviceWatcher: @unchecked Sendable {
         // The disconnect itself is what puts Sidecar into the state that rejects the following
         // connect. The manual path only tears down when it is actually replacing a *live* session
         // (`wasConnected`), which is a different situation from this one.
-        executeConnectAndMirror(deviceName: deviceToConnect, autoMirror: autoMirror, capturedGeneration: capturedGeneration)
+        executeConnectAndMirror(deviceName: deviceToConnect, capturedGeneration: capturedGeneration)
     }
 
     internal func handleConnectFailure(target: String, error: Error, capturedGeneration: UInt64) {

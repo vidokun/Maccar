@@ -16,7 +16,6 @@ struct DeviceWatcherTests {
     private func makeHarness(
         registeredDeviceName: String? = "VPad",
         autoConnect: Bool = true,
-        autoMirror: Bool = true,
         dispatchesReconnectTicks: Bool = false,
         sleep: @escaping @Sendable (TimeInterval) -> Void = { _ in }
     ) -> WatcherHarness {
@@ -25,8 +24,7 @@ struct DeviceWatcherTests {
         let mirror = MockDisplayMirrorManager()
         let settings = MockSettings(
             registeredDeviceName: registeredDeviceName,
-            autoConnect: autoConnect,
-            autoMirror: autoMirror
+            autoConnect: autoConnect
         )
         let clock = ManualTestClock()
         let watcher = DeviceWatcher(
@@ -171,18 +169,19 @@ struct DeviceWatcherTests {
 
     @Test("reconnectNow while connected performs mirror disable, disconnect, fresh connect, and mirror")
     func reconnectNowWhileConnectedPerformsTeardownThenConnectAndMirrors() {
-        let harness = makeHarness(autoMirror: false, dispatchesReconnectTicks: true)
+        let harness = makeHarness(dispatchesReconnectTicks: true)
         harness.sidecar.reachableDevicesResult = .success(["VPad"])
         harness.sidecar.connectedDeviceNames = ["VPad"]
         harness.virtualDisplay.activeDisplayID = 100
-        harness.mirror.ipadDisplayID = 53
+        // No iPad display is visible yet, so the tick adopts the session without a mirror.
+        harness.mirror.ipadDisplayID = nil
+        harness.mirror.onlineDisplayIDs = []
         harness.mirror.mirroredIPadDisplayID = nil
 
         harness.watcher.performTickForTesting()
         #expect(harness.watcher.status == .connected(deviceName: "VPad", displayID: nil, mirrored: false))
-        #expect(harness.watcher.status.displayText.contains("Mirror pending"))
 
-        harness.settings.autoMirror = true
+        harness.mirror.ipadDisplayID = 53
         harness.mirror.mirroredIPadDisplayID = 53
         harness.mirror.autoMatchResult = 53
         harness.watcher.reconnectNow()
@@ -229,7 +228,7 @@ struct DeviceWatcherTests {
 
     @Test("Stale connected session recovers to waiting even when autoConnect is disabled and USB stays plugged")
     func staleConnectedSessionRecoversToWaitingEvenWhenAutoConnectDisabledAndUsbPlugged() {
-        let harness = makeHarness(autoConnect: false, autoMirror: true)
+        let harness = makeHarness(autoConnect: false)
         harness.sidecar.reachableDevicesResult = .success(["VPad"])
         harness.sidecar.connectedDeviceNames = ["VPad"]
         harness.virtualDisplay.activeDisplayID = 100
@@ -268,7 +267,7 @@ struct DeviceWatcherTests {
 
     @Test("A latched gate still adopts an existing Control Center session without reconnecting")
     func latchedGateStillAdoptsExistingSession() {
-        let harness = makeHarness(autoConnect: true, autoMirror: true)
+        let harness = makeHarness(autoConnect: true)
         harness.sidecar.reachableDevicesResult = .success(["VPad"])
         harness.sidecar.connectError = NSError(
             domain: "com.maccar.sidecar",
@@ -293,7 +292,7 @@ struct DeviceWatcherTests {
 
     @Test("Duplicate reconnectNow bursts while in flight are coalesced cleanly")
     func coalescedReconnectIgnoresDuplicateBurstWhileInFlight() {
-        let harness = makeHarness(autoMirror: false, dispatchesReconnectTicks: true)
+        let harness = makeHarness(dispatchesReconnectTicks: true)
         harness.sidecar.reachableDevicesResult = .success(["VPad"])
         let enteredConnect = DispatchSemaphore(value: 0)
         let releaseConnect = DispatchSemaphore(value: 0)
@@ -318,7 +317,7 @@ struct DeviceWatcherTests {
 
     @Test("disconnectManually during in-flight reconnect aborts, cleans up orphan, and preserves hold")
     func disconnectManuallyDuringInFlightReconnectAbortsAndPreservesHold() throws {
-        let harness = makeHarness(autoMirror: true, dispatchesReconnectTicks: true)
+        let harness = makeHarness(dispatchesReconnectTicks: true)
         harness.virtualDisplay.activeDisplayID = 100
         harness.mirror.ipadDisplayID = 53
         harness.sidecar.reachableDevicesResult = .success(["VPad"])

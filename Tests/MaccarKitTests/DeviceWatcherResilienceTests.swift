@@ -27,7 +27,7 @@ struct DeviceWatcherResilienceTests {
         clock: ManualTestClock = ManualTestClock(), sleep: @escaping @Sendable (TimeInterval) -> Void = { _ in }
     ) -> ResilienceHarness {
         let sidecar = MockSidecarService(), vd = MockVirtualDisplayService(), mirror = MockDisplayMirrorManager()
-        let settings = MockSettings(registeredDeviceName: "VPad", autoConnect: autoConnect, autoMirror: true)
+        let settings = MockSettings(registeredDeviceName: "VPad", autoConnect: autoConnect)
         let watcher = DeviceWatcher(
             sidecar: sidecar, virtualDisplay: vd, mirrorManager: mirror, settings: settings,
             // These tests exercise retry policy, not the presence gate. A fixed "present"

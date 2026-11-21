@@ -24,7 +24,7 @@ struct ReplugSeamlessnessTests {
 
     private func makeHarness() -> Harness {
         let sidecar = MockSidecarService(), vd = MockVirtualDisplayService(), mirror = MockDisplayMirrorManager()
-        let settings = MockSettings(registeredDeviceName: "VPad", autoConnect: true, autoMirror: true)
+        let settings = MockSettings(registeredDeviceName: "VPad", autoConnect: true)
         let clock = ManualTestClock()
         let sleeps = OSAllocatedUnfairLock<[TimeInterval]>(initialState: [])
         let watcher = DeviceWatcher(

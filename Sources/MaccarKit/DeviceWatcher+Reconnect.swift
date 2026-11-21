@@ -94,7 +94,6 @@ extension DeviceWatcher {
         guard !shouldAbortConnectAttempt(capturedGeneration: snapshot.generation) else { return }
         executeConnectAndMirror(
             deviceName: target,
-            autoMirror: settings.autoMirror,
             capturedGeneration: snapshot.generation
         )
     }
@@ -107,7 +106,7 @@ extension DeviceWatcher {
             updateStatus(.waitingForDevice(targetName: target))
             return
         }
-        let (mirrored, ipadDisplayID) = syncMirrorIfNeeded(autoMirror: settings.autoMirror)
+        let (mirrored, ipadDisplayID) = syncMirrorIfNeeded()
         updateStatus(.connected(deviceName: target, displayID: ipadDisplayID, mirrored: mirrored))
     }
 
@@ -122,7 +121,7 @@ extension DeviceWatcher {
         }
     }
 
-    internal func executeConnectAndMirror(deviceName: String, autoMirror: Bool, capturedGeneration: UInt64) {
+    internal func executeConnectAndMirror(deviceName: String, capturedGeneration: UInt64) {
         let attemptTime = now()
         stateLock.withLock { $0.backoff.recordAttempt(at: attemptTime) }
         do {
@@ -147,7 +146,7 @@ extension DeviceWatcher {
             $0.consecutiveDetachMisses = 0
         }
         _ = fetchAndCacheReachableDevices()
-        let (mirrored, ipadDisplayID) = syncMirrorIfNeeded(autoMirror: autoMirror)
+        let (mirrored, ipadDisplayID) = syncMirrorIfNeeded()
         if abortAndCleanupOrphanIfNeeded(deviceName: deviceName, capturedGeneration: capturedGeneration) { return }
         updateStatus(.connected(deviceName: deviceName, displayID: ipadDisplayID, mirrored: mirrored))
         MaccarLogger.shared.info("DeviceWatcher", "Successfully connected and configured '\(deviceName)' (mirrored: \(mirrored)).")
@@ -180,27 +179,18 @@ extension DeviceWatcher {
         return true
     }
 
-    internal func syncMirrorIfNeeded(autoMirror: Bool) -> (mirrored: Bool, displayID: CGDirectDisplayID?) {
-        guard autoMirror, let vdID = virtualDisplay.activeDisplayID else { return (false, nil) }
+    internal func syncMirrorIfNeeded() -> (mirrored: Bool, displayID: CGDirectDisplayID?) {
+        guard let vdID = virtualDisplay.activeDisplayID else { return (false, nil) }
 
         guard let ipad = mirrorManager.findIPadDisplay(excludingVirtualDisplayID: vdID) else { return (false, nil) }
         let isMirrored = mirrorManager.isMirrored(ipadDisplay: ipad, toVirtualDisplay: vdID)
 
-        // The decision turns on whether the picture already works, not on how many displays
-        // exist. An unmirrored iPad shows an empty desktop even with a monitor beside it,
-        // because the virtual display is a rendering target rather than a desktop anyone
-        // fills. See `MirrorPolicy` for the measurement behind this.
-        let decision = MirrorPolicy.decide(isMirrorAlreadyApplied: isMirrored, autoMirror: autoMirror)
+        // There is no user switch: mirroring is what puts the Mac's desktop on the iPad, and
+        // the virtual display it renders to is not a screen anybody can see. See `MirrorPolicy`.
+        let decision = MirrorPolicy.decide(isMirrorAlreadyApplied: isMirrored)
         if isMirrored { return (true, ipad) }
 
-        if decision == .leaveUserArrangementAlone {
-            // Only reachable when auto-mirror is off: the user's own switch, honoured.
-            MaccarLogger.shared.info(
-                "DeviceWatcher",
-                "Auto-mirror is off, so the current arrangement is left alone (iPad not mirrored)."
-            )
-            return (false, ipad)
-        }
+        guard decision == .mirrorRequired else { return (false, ipad) }
 
         // A failed attempt must not be retried on the next tick. The 2026-11-21 incident:
         // every failure changed the status, the status change scheduled another tick, and the

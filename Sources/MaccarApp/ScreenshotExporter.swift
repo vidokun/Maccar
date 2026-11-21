@@ -48,7 +48,6 @@ enum ScreenshotExporter {
             registered: "VPad",
             reachableDevices: ["VPad"],
             autoConnect: true,
-            autoMirror: true,
             launchAtLogin: LaunchAtLoginMenuItem(isOn: true, title: LaunchAtLoginMenuItem.defaultTitle, needsApproval: false),
             shortcutEnabled: true,
             shortcutLabel: "⌃⌥⌘R",

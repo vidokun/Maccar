@@ -97,7 +97,6 @@ public protocol DisplayMirroring: AnyObject, Sendable {
 public protocol SettingsProviding: AnyObject, Sendable {
     var registeredDeviceName: String? { get set }
     var autoConnect: Bool { get set }
-    var autoMirror: Bool { get set }
     var startAtLogin: Bool { get set }
     var preferredResolution: String { get set }
     var globalShortcutEnabled: Bool { get set }

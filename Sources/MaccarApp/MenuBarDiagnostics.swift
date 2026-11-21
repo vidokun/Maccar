@@ -15,7 +15,6 @@ extension MenuBarController {
             operatingSystemVersion: ProcessInfo.processInfo.operatingSystemVersionString,
             registeredDeviceName: settings.registeredDeviceName,
             autoConnectEnabled: settings.autoConnect,
-            autoMirrorEnabled: settings.autoMirror,
             shortcutLabel: settings.globalShortcutEnabled ? HotKeyManager.shared.currentShortcutLabel : nil,
             startAtLoginIntent: settings.startAtLoginIntent,
             loginItemStatus: settings.loginItemStatus.rawValue,

@@ -23,11 +23,11 @@ struct MirrorPolicyWiringTests {
 
     /// Connected iPad whose virtual display is active. `extras` are the online displays
     /// besides the virtual one; pass the monitor's ID to model a monitor being attached.
-    private func makeHarness(extras: [CGDirectDisplayID], autoMirror: Bool = true) -> Harness {
+    private func makeHarness(extras: [CGDirectDisplayID]) -> Harness {
         let sidecar = MockSidecarService()
         let vd = MockVirtualDisplayService()
         let mirror = MockDisplayMirrorManager()
-        let settings = MockSettings(registeredDeviceName: "VPad", autoConnect: true, autoMirror: autoMirror)
+        let settings = MockSettings(registeredDeviceName: "VPad", autoConnect: true)
 
         sidecar.reachableDevicesResult = .success(["VPad"])
         sidecar.connectedDeviceNames = ["VPad"]
@@ -87,12 +87,16 @@ struct MirrorPolicyWiringTests {
         #expect(harness.mirror.autoMatchAndMirrorCalls.isEmpty, "a working picture needs no correction")
     }
 
-    @Test("Auto-mirror switched off: never applied, monitor or not")
-    func autoMirrorOffIsRespected() {
+    @Test("Mirroring is applied on a headless Mac and with a monitor attached alike")
+    func mirroringIsAppliedOnEveryDesk() {
+        // There is no switch any more, so this is the only behaviour: the iPad mirrors the
+        // virtual display whether or not something else is plugged in. A monitor does not
+        // make the iPad's copy any less necessary — the windows live on the virtual display,
+        // so an unmirrored iPad would show an empty desktop.
         for extras in [[], [monitorID]] {
-            let harness = makeHarness(extras: extras, autoMirror: false)
+            let harness = makeHarness(extras: extras)
             harness.watcher.performTickForTesting()
-            #expect(harness.mirror.autoMatchAndMirrorCalls.isEmpty, "extras=\(extras)")
+            #expect(harness.mirror.autoMatchAndMirrorCalls == [virtualID], "extras=\(extras)")
         }
     }
 

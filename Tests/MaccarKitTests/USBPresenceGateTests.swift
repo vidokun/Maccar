@@ -16,7 +16,7 @@ struct USBPresenceGateTests {
     @Test("A pulled cable suppresses connect even when Sidecar still lists the device")
     func pulledCableSuppressesConnectDespiteReachableList() {
         let sidecar = MockSidecarService(), vd = MockVirtualDisplayService(), mirror = MockDisplayMirrorManager()
-        let settings = MockSettings(registeredDeviceName: "VPad", autoConnect: true, autoMirror: true)
+        let settings = MockSettings(registeredDeviceName: "VPad", autoConnect: true)
         let clock = ManualTestClock()
         let presence = MockUSBDevicePresence(isPresent: false)
         let watcher = DeviceWatcher(
@@ -38,7 +38,7 @@ struct USBPresenceGateTests {
     @Test("A present iPad still connects normally")
     func presentIPadStillConnects() {
         let sidecar = MockSidecarService(), vd = MockVirtualDisplayService(), mirror = MockDisplayMirrorManager()
-        let settings = MockSettings(registeredDeviceName: "VPad", autoConnect: true, autoMirror: true)
+        let settings = MockSettings(registeredDeviceName: "VPad", autoConnect: true)
         let clock = ManualTestClock()
         let presence = MockUSBDevicePresence(isPresent: true)
         let watcher = DeviceWatcher(

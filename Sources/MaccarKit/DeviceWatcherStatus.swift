@@ -26,7 +26,10 @@ public enum DeviceWatcherStatus: Equatable, Sendable {
         case .connecting(let target):
             return "Connecting to '\(target)'..."
         case .connected(let name, _, let mirrored):
-            let mirrorNote = mirrored ? " (Mirrored)" : " (Mirror pending — click Reconnect to retry)"
+            // Unmirrored is not "pending a retry": nothing will retry it automatically once
+            // the failure budget is spent, and the state is simply wrong rather than
+            // unfinished. Naming the action is more honest than promising a retry.
+            let mirrorNote = mirrored ? " (Mirrored)" : " (Not mirrored — click Reconnect)"
             return "Connected: \(name)\(mirrorNote)"
         case .error(let msg):
             return "Error: \(msg)"

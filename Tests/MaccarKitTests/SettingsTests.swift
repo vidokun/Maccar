@@ -75,7 +75,6 @@ struct SettingsTests {
             #expect(cliSettings.skippedVersion == nil)
             #expect(cliSettings.lastUpdateCheckTimestamp == 0)
             #expect(cliSettings.autoConnect == true)
-            #expect(cliSettings.autoMirror == true)
             #expect(cliSettings.preferredResolution == "auto")
             #expect(cliSettings.globalShortcutEnabled == true)
             #expect(cliSettings.isConfigured == false)

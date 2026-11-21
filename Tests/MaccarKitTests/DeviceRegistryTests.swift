@@ -164,7 +164,7 @@ struct DeviceRegistryTests {
         sidecar.reachableDevicesWithIdentityResult = .success([
             SidecarDevice(identifier: "UUID-B", name: "RenamedPad", model: "iPad16,1")
         ])
-        let settings = MockSettings(registeredDeviceName: nil, autoConnect: true, autoMirror: true)
+        let settings = MockSettings(registeredDeviceName: nil, autoConnect: true)
         let watcher = DeviceWatcher(
             sidecar: sidecar,
             virtualDisplay: MockVirtualDisplayService(),
@@ -194,7 +194,7 @@ struct DeviceRegistryTests {
             sidecar: sidecar,
             virtualDisplay: MockVirtualDisplayService(),
             mirrorManager: MockDisplayMirrorManager(),
-            settings: MockSettings(registeredDeviceName: nil, autoConnect: true, autoMirror: true),
+            settings: MockSettings(registeredDeviceName: nil, autoConnect: true),
             usbPresence: MockUSBDevicePresence(isPresent: true),
             registry: registry,
             dispatchesReconnectTicks: false,
@@ -221,7 +221,7 @@ struct DeviceRegistryTests {
                 sidecar: sidecar,
                 virtualDisplay: MockVirtualDisplayService(),
                 mirrorManager: MockDisplayMirrorManager(),
-                settings: MockSettings(registeredDeviceName: nil, autoConnect: true, autoMirror: true),
+                settings: MockSettings(registeredDeviceName: nil, autoConnect: true),
                 usbPresence: MockUSBDevicePresence(isPresent: true),
                 registry: registry,
                 registryStore: store,
@@ -254,7 +254,7 @@ struct DeviceRegistryTests {
                 virtualDisplay: MockVirtualDisplayService(),
                 mirrorManager: MockDisplayMirrorManager(),
                 // The user configured "TravelPad" back when identity was a typed name.
-                settings: MockSettings(registeredDeviceName: "TravelPad", autoConnect: true, autoMirror: true),
+                settings: MockSettings(registeredDeviceName: "TravelPad", autoConnect: true),
                 usbPresence: MockUSBDevicePresence(isPresent: true),
                 registry: registry,
                 registryStore: DeviceRegistryStore(defaults: defaults),
@@ -285,7 +285,7 @@ struct DeviceRegistryTests {
                 sidecar: sidecar,
                 virtualDisplay: MockVirtualDisplayService(),
                 mirrorManager: MockDisplayMirrorManager(),
-                settings: MockSettings(registeredDeviceName: "Other", autoConnect: true, autoMirror: true),
+                settings: MockSettings(registeredDeviceName: "Other", autoConnect: true),
                 usbPresence: MockUSBDevicePresence(isPresent: true),
                 registry: registry,
                 registryStore: DeviceRegistryStore(defaults: defaults),
@@ -313,7 +313,7 @@ struct DeviceRegistryTests {
                 virtualDisplay: MockVirtualDisplayService(),
                 mirrorManager: MockDisplayMirrorManager(),
                 // Configured for an iPad that is not the one attached.
-                settings: MockSettings(registeredDeviceName: "SomeOtherPad", autoConnect: true, autoMirror: true),
+                settings: MockSettings(registeredDeviceName: "SomeOtherPad", autoConnect: true),
                 usbPresence: MockUSBDevicePresence(isPresent: true),
                 registry: registry,
                 registryStore: DeviceRegistryStore(defaults: defaults),
@@ -342,7 +342,7 @@ struct DeviceRegistryTests {
                 sidecar: sidecar,
                 virtualDisplay: MockVirtualDisplayService(),
                 mirrorManager: MockDisplayMirrorManager(),
-                settings: MockSettings(registeredDeviceName: nil, autoConnect: true, autoMirror: true),
+                settings: MockSettings(registeredDeviceName: nil, autoConnect: true),
                 usbPresence: MockUSBDevicePresence(isPresent: true),
                 registry: registry,
                 registryStore: DeviceRegistryStore(defaults: defaults),

@@ -10,7 +10,6 @@ public struct DiagnosticsSnapshot: Sendable, Equatable {
     public let operatingSystemVersion: String
     public let registeredDeviceName: String?
     public let autoConnectEnabled: Bool
-    public let autoMirrorEnabled: Bool
     public let shortcutLabel: String?
     public let startAtLoginIntent: Bool
     public let loginItemStatus: String
@@ -26,7 +25,6 @@ public struct DiagnosticsSnapshot: Sendable, Equatable {
         operatingSystemVersion: String,
         registeredDeviceName: String?,
         autoConnectEnabled: Bool,
-        autoMirrorEnabled: Bool,
         shortcutLabel: String?,
         startAtLoginIntent: Bool,
         loginItemStatus: String,
@@ -41,7 +39,6 @@ public struct DiagnosticsSnapshot: Sendable, Equatable {
         self.operatingSystemVersion = operatingSystemVersion
         self.registeredDeviceName = registeredDeviceName
         self.autoConnectEnabled = autoConnectEnabled
-        self.autoMirrorEnabled = autoMirrorEnabled
         self.shortcutLabel = shortcutLabel
         self.startAtLoginIntent = startAtLoginIntent
         self.loginItemStatus = loginItemStatus
@@ -67,7 +64,6 @@ public enum DiagnosticsReport {
         lines.append("")
         lines.append("Registered iPad:     \(snapshot.registeredDeviceName ?? "(None configured)")")
         lines.append("Auto-Connect:        \(enabledWord(snapshot.autoConnectEnabled))")
-        lines.append("Auto-Mirror:         \(enabledWord(snapshot.autoMirrorEnabled))")
         lines.append("Global Shortcut:     \(shortcutDescription(snapshot.shortcutLabel))")
         lines.append("")
         lines.append("Launch at Login:     \(launchAtLoginDescription(snapshot))")

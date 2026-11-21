@@ -59,7 +59,6 @@ public final class MaccarSettings: @unchecked Sendable {
     private enum Key {
         static let registeredDeviceName = "maccar_registered_device_name"
         static let autoConnect = "maccar_auto_connect"
-        static let autoMirror = "maccar_auto_mirror"
         static let startAtLogin = "maccar_start_at_login"
         /// The user's standing wish, independent of what macOS has granted. Kept apart from
         /// `startAtLogin` (a mirror of `SMAppService.status`) because approval can arrive
@@ -85,7 +84,6 @@ public final class MaccarSettings: @unchecked Sendable {
         self.loginItemManager = loginItemManager
         defaults.register(defaults: [
             Key.autoConnect: true,
-            Key.autoMirror: true,
             Key.startAtLogin: false,
             Key.preferredResolution: "auto",
             Key.globalShortcutEnabled: true,
@@ -121,11 +119,6 @@ public final class MaccarSettings: @unchecked Sendable {
     public var autoConnect: Bool {
         get { defaults.bool(forKey: Key.autoConnect) }
         set { defaults.set(newValue, forKey: Key.autoConnect) }
-    }
-
-    public var autoMirror: Bool {
-        get { defaults.bool(forKey: Key.autoMirror) }
-        set { defaults.set(newValue, forKey: Key.autoMirror) }
     }
 
     /// Whether the login item is actually enabled right now. This mirrors macOS, not the

@@ -142,7 +142,6 @@ extension MenuBarController {
 
     func addSettingsSection(
         autoConnect: Bool,
-        autoMirror: Bool,
         launchAtLogin: LaunchAtLoginMenuItem,
         shortcutEnabled: Bool,
         shortcutLabel: String,
@@ -150,7 +149,8 @@ extension MenuBarController {
         autoCheckUpdates: Bool
     ) {
         menu.addItem(makeItem("Auto-Connect on USB", action: #selector(toggleAutoConnect), isOn: autoConnect))
-        menu.addItem(makeItem("Auto-Mirroring", action: #selector(toggleAutoMirror), isOn: autoMirror))
+        // No mirroring toggle: the iPad mirrors the virtual display or it shows nothing, so
+        // the position "off" has no useful meaning. See `MirrorPolicy`.
         menu.addItem(makeItem(launchAtLogin.title, action: #selector(toggleLaunchAtLogin), isOn: launchAtLogin.isOn))
         menu.addItem(makeItem("Global Shortcut (\(shortcutLabel))", action: #selector(toggleGlobalShortcut), isOn: shortcutEnabled))
         if let conflictLabel = shortcutConflictLabel {

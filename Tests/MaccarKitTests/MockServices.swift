@@ -249,7 +249,6 @@ final class MockSettings: SettingsProviding, @unchecked Sendable {
     private struct State: Sendable {
         var registeredDeviceName: String?
         var autoConnect: Bool = true
-        var autoMirror: Bool = true
         var startAtLogin: Bool = false
         var preferredResolution: String = "auto"
         var globalShortcutEnabled: Bool = true
@@ -257,17 +256,15 @@ final class MockSettings: SettingsProviding, @unchecked Sendable {
 
     private let lock: OSAllocatedUnfairLock<State>
 
-    init(registeredDeviceName: String? = nil, autoConnect: Bool = true, autoMirror: Bool = true) {
+    init(registeredDeviceName: String? = nil, autoConnect: Bool = true) {
         self.lock = OSAllocatedUnfairLock(initialState: State(
             registeredDeviceName: registeredDeviceName,
             autoConnect: autoConnect,
-            autoMirror: autoMirror
         ))
     }
 
     var registeredDeviceName: String? { get { lock.withLock { $0.registeredDeviceName } } set { lock.withLock { $0.registeredDeviceName = newValue } } }
     var autoConnect: Bool { get { lock.withLock { $0.autoConnect } } set { lock.withLock { $0.autoConnect = newValue } } }
-    var autoMirror: Bool { get { lock.withLock { $0.autoMirror } } set { lock.withLock { $0.autoMirror = newValue } } }
     var startAtLogin: Bool { get { lock.withLock { $0.startAtLogin } } set { lock.withLock { $0.startAtLogin = newValue } } }
     var preferredResolution: String { get { lock.withLock { $0.preferredResolution } } set { lock.withLock { $0.preferredResolution = newValue } } }
     var globalShortcutEnabled: Bool { get { lock.withLock { $0.globalShortcutEnabled } } set { lock.withLock { $0.globalShortcutEnabled = newValue } } }

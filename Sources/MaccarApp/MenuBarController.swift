@@ -244,7 +244,7 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
         if isResolutionSwitchInFlight { return "Maccar - Switching virtual display resolution..." }
         switch status {
         case .connected(let name, _, let mirrored):
-            return "Maccar - Connected to \(name)\(mirrored ? " (Mirrored)" : " (Mirror pending - click Reconnect to retry)")"
+            return "Maccar - Connected to \(name)\(mirrored ? " (Mirrored)" : " (Not mirrored - click Reconnect)")"
         case .connecting(let name):
             return "Maccar - Connecting to \(name)..."
         case .disconnectedManually(let target):
@@ -301,7 +301,6 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
             registered: resolvedTargetName(),
             reachableDevices: cachedReachableDevices,
             autoConnect: settings.autoConnect,
-            autoMirror: settings.autoMirror,
             launchAtLogin: settings.launchAtLoginMenuItem,
             shortcutEnabled: settings.globalShortcutEnabled,
             shortcutLabel: hotKey.currentShortcutLabel,
@@ -318,7 +317,6 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
         registered: String?,
         reachableDevices: [String] = [],
         autoConnect: Bool,
-        autoMirror: Bool,
         launchAtLogin: LaunchAtLoginMenuItem,
         shortcutEnabled: Bool,
         shortcutLabel: String,
@@ -354,7 +352,6 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
         menu.addItem(NSMenuItem.separator())
         addSettingsSection(
             autoConnect: autoConnect,
-            autoMirror: autoMirror,
             launchAtLogin: launchAtLogin,
             shortcutEnabled: shortcutEnabled,
             shortcutLabel: shortcutLabel,
@@ -567,12 +564,6 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
         DeviceWatcher.shared.setAutoConnectEnabled(enabled)
         MaccarLogger.shared.info("MenuBar", "Auto-Connect set to \(enabled).")
         updateTitle(for: DeviceWatcher.shared.status)
-        setupMenu()
-    }
-
-    @objc func toggleAutoMirror() {
-        MaccarSettings.shared.autoMirror.toggle()
-        MaccarLogger.shared.info("MenuBar", "Auto-Mirror set to \(MaccarSettings.shared.autoMirror).")
         setupMenu()
     }
 
