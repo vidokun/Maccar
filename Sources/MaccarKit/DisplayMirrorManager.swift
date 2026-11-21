@@ -19,13 +19,20 @@ public final class DisplayMirrorManager: @unchecked Sendable {
         return CGDisplayConfigBridge.onlineDisplayIDs().map { $0.uint32Value }
     }
 
-    /// Identifies the Sidecar/iPad display by finding an online non-builtin display that is NOT the virtual display.
+    /// Identifies the Sidecar/iPad display among the online displays.
+    ///
+    /// The candidates are everything that is neither the virtual display nor built in.
+    /// Choosing among them is `SidecarDisplayIdentifier.chooseIPad`, which names the iPad
+    /// by its model number instead of taking the first entry: with a monitor attached,
+    /// "first" can be the monitor, and mirroring that would rearrange the user's physical
+    /// layout. See `SidecarDisplayIdentifier` for the measurement behind the constant.
     public func findIPadDisplay(excludingVirtualDisplayID: CGDirectDisplayID) -> CGDirectDisplayID? {
-        onlineDisplays().first { id in
+        let candidates = onlineDisplays().filter { id in
             id != 0
                 && id != excludingVirtualDisplayID
                 && CGDisplayIsBuiltin(id) == 0
         }
+        return SidecarDisplayIdentifier.chooseIPad(candidates: candidates) { CGDisplayModelNumber($0) }
     }
 
     /// Reads the true hardware pixel resolution of a display by probing its modes.
