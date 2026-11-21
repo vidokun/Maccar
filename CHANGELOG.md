@@ -2,6 +2,18 @@
 
 All notable changes to **Maccar** are documented in this file.
 
+## [v1.5.2] - 2026-11-21
+### Fixed
+- **The virtual display's resolution could change on its own, and could not be set back.** Reported with no HDMI attached, using only the iPad. Changing resolution fell back to a call that **replaces the display's entire mode list** rather than selecting a mode, so when a switch failed the display was left advertising only the requested size and the active mode drifted. The resolution is now only ever switched to a mode the display already offers; if there is none, that is reported instead of rewriting its capabilities. *(`VirtualDisplay`)*
+- **A failed mirror attempt retried forever.** Each failure changed the reported status, a status change scheduled another round, and that round re-ran the same doomed switch — measured at 11 failures a minute, sustained, until the app was quit. The retry budget is now explicit and terminal: two automatic attempts, then silence, cleared only by a replug, a manual reconnect, or a settings change. A status change is no longer treated as a request to try again. *(`FailureBackoff`, `DeviceWatcher`)*
+- **A successful resolution change could be reported as a failure.** The settle check judged against a mode list captured before the switch was attempted. It now re-reads on each pass. *(`VirtualDisplay`)*
+- **Changing resolution switched mirroring back on behind the user's back.** That path tore the mirror down and rebuilt it unconditionally, so a Mac with Auto-Mirror off came back mirrored. It now honours the same rule as the rest of the app. *(`MenuBarResolutionSupport`)*
+- **With a monitor attached, Maccar could mirror the monitor instead of the iPad.** The iPad was "the first online display that is not the virtual one", which is the monitor when one is plugged in. It is now identified by its own model number. *(`SidecarDisplayIdentifier`, `DisplayMirrorManager`)*
+- **Mirroring was re-applied even when it already worked**, so a user who turned it off saw it come back. The rule is now: mirror it if it is not mirroring, leave it alone if it is. On a Mac with no other screen the picture is mandatory; with a monitor attached the existing arrangement is the user's. *(`MirrorPolicy`)*
+
+### Known limitation
+- **The first automatic connect after a replug still fails once**, then succeeds a few seconds later, raising one Apple popup. Unchanged from v1.4.2 and v1.5.0 — Sidecar restarts `SidecarDisplayAgent` on every replug and refuses connections until it is ready.
+
 ## [v1.5.1] - 2026-11-20
 ### Fixed
 - **Quitting Maccar left a phantom display behind.** The virtual display was only torn down by the Menu Bar item's Quit, so Cmd+Q, logout, or a system restart skipped it and left the in-memory display registered with WindowServer — it stayed visible in Displays settings and only a force quit cleared it. Teardown now runs from `applicationWillTerminate`, which macOS delivers on every exit route. Reported by the first external user. *(`AppDelegate` in `main.swift`, `MenuBarController`)*

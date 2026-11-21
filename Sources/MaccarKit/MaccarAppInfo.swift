@@ -8,7 +8,7 @@ public enum MaccarAppInfo {
     /// Used when `Bundle.main` carries no version — true for the debug binary run from
     /// `.build/debug`, which has no `Info.plist`. Must be bumped in lockstep with
     /// `scripts/Info.plist`, or a debug build reports a version that was never released.
-    public static let fallbackVersion = "1.5.1"
+    public static let fallbackVersion = "1.5.2"
 
     public static var shortVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? fallbackVersion
