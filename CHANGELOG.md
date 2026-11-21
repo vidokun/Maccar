@@ -2,6 +2,14 @@
 
 All notable changes to **Maccar** are documented in this file.
 
+## [v1.5.3] - 2026-11-21
+### Changed
+- **The "Auto-Mirroring" switch is gone.** It had two positions and only one of them worked. The virtual display is where the Mac's windows actually live — measured: every visible window was on it — and mirroring is what puts those windows on the iPad. Turning it off left the iPad as a second, empty desktop while the real windows stayed on a display nobody can see. There is no desk where that is useful: on a headless Mac the iPad is the only screen, and with a monitor attached the monitor is its own desktop while the iPad still has to show the virtual one. Mirroring is now simply what Maccar does.
+- **Unmirrored is no longer described as "pending".** The status used to say *"Mirror pending — click Reconnect to retry"*, promising an automatic retry that the failure budget deliberately does not make. It now reads *"Not mirrored — click Reconnect"*.
+
+### Note for upgrading
+- If you had turned Auto-Mirroring **off**, your iPad will now mirror the virtual display like everyone else's. That is the only state in which the Mac's windows are visible on it, so it is a fix rather than a regression — but it is a deliberate change in behaviour.
+
 ## [v1.5.2] - 2026-11-21
 ### Fixed
 - **The virtual display's resolution could change on its own, and could not be set back.** Reported with no HDMI attached, using only the iPad. Changing resolution fell back to a call that **replaces the display's entire mode list** rather than selecting a mode, so when a switch failed the display was left advertising only the requested size and the active mode drifted. The resolution is now only ever switched to a mode the display already offers; if there is none, that is reported instead of rewriting its capabilities. *(`VirtualDisplay`)*
