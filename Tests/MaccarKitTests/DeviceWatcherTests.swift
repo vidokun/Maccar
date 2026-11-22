@@ -10,6 +10,7 @@ struct DeviceWatcherTests {
         let mirror: MockDisplayMirrorManager
         let settings: MockSettings
         let clock: ManualTestClock
+        let wireless: WirelessSession
         let watcher: DeviceWatcher
     }
 
@@ -27,6 +28,7 @@ struct DeviceWatcherTests {
             autoConnect: autoConnect
         )
         let clock = ManualTestClock()
+        let wireless = WirelessSession()
         let watcher = DeviceWatcher(
             sidecar: sidecar,
             virtualDisplay: virtualDisplay,
@@ -35,6 +37,7 @@ struct DeviceWatcherTests {
             // Deterministic on any machine: the default reads real IOKit, so the suite would
             // pass or fail depending on whether an iPad is plugged in.
             usbPresence: MockUSBDevicePresence(isPresent: true),
+            wirelessSession: wireless,
             dispatchesReconnectTicks: dispatchesReconnectTicks,
             registersSystemObservers: false,
             now: { clock.now() },
@@ -46,6 +49,7 @@ struct DeviceWatcherTests {
             mirror: mirror,
             settings: settings,
             clock: clock,
+            wireless: wireless,
             watcher: watcher
         )
     }

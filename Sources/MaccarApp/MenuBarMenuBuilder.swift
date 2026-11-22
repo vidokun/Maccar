@@ -16,13 +16,19 @@ extension MenuBarController {
         }
     }
 
-    func addConnectionSection(status: DeviceWatcherStatus, registered: String?, shortcutEnabled: Bool, shortcutLabel: String) {
+    func addConnectionSection(status: DeviceWatcherStatus, registered: String?, shortcutEnabled: Bool, shortcutLabel: String, isOnCable: Bool) {
         let keyEquiv = shortcutEnabled ? "r" : ""
         let keyMask: NSEvent.ModifierFlags? = shortcutEnabled ? activeShortcutModifiers(shortcutLabel: shortcutLabel) : nil
         let enabled = !isOperationBusy
 
         switch status {
-        case .connected(let name, _, _):
+        case .connected(let name, _, let mirrored):
+            // Which transport the session is on. Sidecar does not expose it, so this answers
+            // the question the user actually has — "will the picture survive the cable coming
+            // out?" — from physical presence, which is what decides it.
+            let transport = isOnCable ? "cable" : "Wi-Fi"
+            let mirrorNote = mirrored ? "" : ", not mirrored"
+            menu.addItem(makeDisabledItem("Connected to '\(name)' — \(transport)\(mirrorNote)"))
             menu.addItem(makeItem("Disconnect '\(name)'", action: #selector(disconnectTapped), key: "d", isEnabled: enabled))
             menu.addItem(makeItem("Reconnect '\(name)' (Reset)", action: #selector(reconnectTapped), key: keyEquiv, modifiers: keyMask, isEnabled: enabled))
         case .connecting(let name):
@@ -142,6 +148,9 @@ extension MenuBarController {
 
     func addSettingsSection(
         autoConnect: Bool,
+        wirelessEnabled: Bool,
+        canEnableWireless: Bool,
+        isOnWiFi: Bool,
         launchAtLogin: LaunchAtLoginMenuItem,
         shortcutEnabled: Bool,
         shortcutLabel: String,
@@ -151,6 +160,25 @@ extension MenuBarController {
         menu.addItem(makeItem("Auto-Connect on USB", action: #selector(toggleAutoConnect), isOn: autoConnect))
         // No mirroring toggle: the iPad mirrors the virtual display or it shows nothing, so
         // the position "off" has no useful meaning. See `MirrorPolicy`.
+        //
+        // Wi-Fi is opt-in per session, and enabling it requires a cable: that is the one moment
+        // the iPad is provably present, so a later Wi-Fi failure cannot raise a popup on a
+        // screen the user cannot see. Turning it OFF is always allowed — when the session is
+        // already running over Wi-Fi, this is the only control the user has.
+        menu.addItem(makeItem(
+            "Wi-Fi Mode",
+            action: #selector(toggleWirelessMode),
+            isOn: wirelessEnabled,
+            isEnabled: wirelessEnabled || canEnableWireless || isOnWiFi
+        ))
+        if isOnWiFi && !wirelessEnabled {
+            // A Wi-Fi session can outlive the permission that created it, and can be created by
+            // something other than this launch. Saying so is better than a menu that claims
+            // "off" while the picture is arriving over Wi-Fi.
+            menu.addItem(makeDisabledItem("  Connected over Wi-Fi (turn Wi-Fi Mode on to keep it)"))
+        } else if !wirelessEnabled && !canEnableWireless {
+            menu.addItem(makeDisabledItem("  Connect by cable to enable Wi-Fi Mode"))
+        }
         menu.addItem(makeItem(launchAtLogin.title, action: #selector(toggleLaunchAtLogin), isOn: launchAtLogin.isOn))
         menu.addItem(makeItem("Global Shortcut (\(shortcutLabel))", action: #selector(toggleGlobalShortcut), isOn: shortcutEnabled))
         if let conflictLabel = shortcutConflictLabel {

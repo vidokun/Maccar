@@ -63,6 +63,8 @@ public final class DeviceWatcher: @unchecked Sendable {
     internal let settings: any SettingsProviding
     /// Physical presence, authoritative over Sidecar's paired-device list. See D6c.
     internal let usbPresence: any USBDevicePresenceChecking
+    /// Whether Wi-Fi is permitted for this session. See `WirelessSession`.
+    internal let wirelessSession: WirelessSession
     /// Multi-device registry (Wave 3). Optional: when absent, the legacy single-name setting is
     /// used, which keeps the existing tests and any pre-registry state working unchanged.
     internal let registryStorage: DeviceRegistry?
@@ -96,6 +98,17 @@ public final class DeviceWatcher: @unchecked Sendable {
     /// source as the connect path. A second IOKit probe in the menu layer could disagree with
     /// this one, and then the app would offer to register a device it refuses to connect to.
     public var isIPadAttached: Bool { usbPresence.isIPadAttached() }
+
+    /// Whether a live session exists but the iPad is not on the cable — i.e. Sidecar is carrying
+    /// the picture over Wi-Fi right now.
+    ///
+    /// This can be true while `WirelessSession` is off: a session created earlier, or by another
+    /// process, outlives whatever made it. The menu must be able to say so and to close it, or
+    /// the user is left with a Wi-Fi session they have no button for.
+    public var isConnectedOverWiFi: Bool {
+        guard let target = resolvedTargetName() else { return false }
+        return sidecar.isDeviceConnected(deviceName: target) && !usbPresence.isIPadAttached()
+    }
     public var onStatusChange: (@Sendable (DeviceWatcherStatus) -> Void)? {
         get { stateLock.withLock { $0.onStatusChange } }
         set { stateLock.withLock { $0.onStatusChange = newValue } }
@@ -117,6 +130,7 @@ public final class DeviceWatcher: @unchecked Sendable {
         mirrorManager: any DisplayMirroring = DisplayMirrorManager.shared,
         settings: any SettingsProviding = MaccarSettings.shared,
         usbPresence: any USBDevicePresenceChecking = SystemUSBDevicePresence(),
+        wirelessSession: WirelessSession = .shared,
         registry: DeviceRegistry? = nil,
         registryStore: DeviceRegistryStore? = nil,
         dispatchesReconnectTicks: Bool = true, registersSystemObservers: Bool = true,
@@ -127,6 +141,7 @@ public final class DeviceWatcher: @unchecked Sendable {
         self.sidecar = sidecar; self.virtualDisplay = virtualDisplay
         self.mirrorManager = mirrorManager; self.settings = settings
         self.usbPresence = usbPresence
+        self.wirelessSession = wirelessSession
         self.registryStorage = registry
         self.registryStore = registryStore
         self.dispatchesReconnectTicks = dispatchesReconnectTicks

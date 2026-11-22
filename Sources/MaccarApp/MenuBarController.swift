@@ -333,7 +333,14 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
 
         menu.addItem(makeDisabledItem(statusTitle))
         menu.addItem(NSMenuItem.separator())
-        addConnectionSection(status: status, registered: registered, shortcutEnabled: shortcutEnabled, shortcutLabel: shortcutLabel)
+        // Physical presence decides the reported transport: Sidecar does not expose it, and a
+        // session that survives the cable coming out is exactly what "on Wi-Fi" means here.
+        let onCable = DeviceWatcher.shared.isIPadAttached
+        addConnectionSection(
+            status: status, registered: registered,
+            shortcutEnabled: shortcutEnabled, shortcutLabel: shortcutLabel,
+            isOnCable: onCable
+        )
         addResolutionSubmenu(currentResolutionKey: preferredResolution)
         // Wave 3.3: once the registry knows about devices, the menu is registry-backed and
         // identifier-keyed. Before that it falls back to the legacy typed-name submenu, so an
@@ -352,6 +359,9 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
         menu.addItem(NSMenuItem.separator())
         addSettingsSection(
             autoConnect: autoConnect,
+            wirelessEnabled: WirelessSession.shared.isEnabled,
+            canEnableWireless: onCable,
+            isOnWiFi: DeviceWatcher.shared.isConnectedOverWiFi,
             launchAtLogin: launchAtLogin,
             shortcutEnabled: shortcutEnabled,
             shortcutLabel: shortcutLabel,
@@ -567,6 +577,57 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
         setupMenu()
     }
 
+    @objc func toggleWirelessMode() {
+        let session = WirelessSession.shared
+        let enabling = !session.isEnabled
+
+        if enabling {
+            // Enabling requires a cable: the iPad must be provably present before Maccar takes
+            // the risk of a Wi-Fi failure whose popup would appear on a screen nobody can see.
+            guard DeviceWatcher.shared.isIPadAttached else {
+                MaccarLogger.shared.info("MenuBar", "Wi-Fi Mode needs a cable connection to be enabled.")
+                NSSound.beep()
+                setupMenu()
+                return
+            }
+            session.enable()
+            MaccarLogger.shared.info("MenuBar", "Wi-Fi Mode enabled.")
+
+            // A live session cannot be re-armed in place — Sidecar rejects a second connect with
+            // `-100 already in use` (measured 2026-11-21) — so the permission takes effect on a
+            // fresh connect. Afterwards Sidecar moves the session between transports on its own.
+            DeviceWatcher.shared.reconnectNow()
+            setupMenu()
+            return
+        }
+
+        session.disable()
+        MaccarLogger.shared.info("MenuBar", "Wi-Fi Mode disabled.")
+
+        // Turning it off must actually end a Wi-Fi session, otherwise the toggle is decorative:
+        // the permission is revoked but the picture keeps arriving over Wi-Fi.
+        //
+        // This deliberately does NOT go through `disconnectManually()`: that also installs the
+        // manual-disconnect hold, which suppresses auto-connect until a replug. Observed on
+        // 2026-11-22 — after turning Wi-Fi Mode off, plugging the cable in did nothing, and the
+        // log filled with "while manual disconnect hold is active; preserving hold". Disabling a
+        // permission is not the same instruction as "leave me disconnected".
+        if DeviceWatcher.shared.isConnectedOverWiFi {
+            let target = resolvedTargetName()
+            if let target {
+                do {
+                    try SidecarService.shared.disconnect(deviceName: target, ignoreNotConnected: true)
+                    MaccarLogger.shared.info("MenuBar", "Closed the Wi-Fi session for '\(target)'.")
+                } catch {
+                    MaccarLogger.shared.error("MenuBar", "Could not close the Wi-Fi session: \(error.localizedDescription)")
+                }
+            }
+            // Reconnect on whatever transport is available now — the cable if it is attached.
+            DeviceWatcher.shared.reconnectNow()
+        }
+        setupMenu()
+    }
+
     @objc func toggleLaunchAtLogin() {
         let settings = MaccarSettings.shared
         // Flip from the rendered state, not from `startAtLogin`: that getter reports the grant,
@@ -602,6 +663,23 @@ public final class MenuBarController: NSObject, NSMenuDelegate {
     }
 
     internal func performCleanShutdown() {
+        // A Wi-Fi session outlives the process that created it — proved on 2026-11-21, where
+        // the session stayed connected with Maccar not running. Leaving it alive after a quit
+        // would contradict "quitting Maccar turns Wi-Fi off", so it is closed explicitly. The
+        // disconnect is unconditional: when the session is wired it is the normal teardown,
+        // and when it is on Wi-Fi it is the requirement.
+        if WirelessSession.shared.isEnabled {
+            let target = resolvedTargetName()
+            if let target {
+                do {
+                    try SidecarService.shared.disconnect(deviceName: target, ignoreNotConnected: true)
+                    MaccarLogger.shared.info("App", "Closed the Wi-Fi session for '\(target)' on shutdown.")
+                } catch {
+                    MaccarLogger.shared.warning("App", "Could not close the Wi-Fi session: \(error.localizedDescription)")
+                }
+            }
+            WirelessSession.shared.disable()
+        }
         DeviceWatcher.shared.stop()
         HotKeyManager.shared.unregister()
         VirtualDisplayService.shared.destroy()

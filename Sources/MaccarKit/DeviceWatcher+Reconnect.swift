@@ -124,8 +124,12 @@ extension DeviceWatcher {
     internal func executeConnectAndMirror(deviceName: String, capturedGeneration: UInt64) {
         let attemptTime = now()
         stateLock.withLock { $0.backoff.recordAttempt(at: attemptTime) }
+        // Wi-Fi is a session permission, not a transport manager: when it is on, Sidecar is
+        // allowed to pick Wi-Fi for this call, and to move the session between transports on
+        // its own afterwards. When it is off, this is exactly the previous behaviour.
+        let wired = wirelessSession.prefersWired
         do {
-            try sidecar.connect(deviceName: deviceName, wired: true)
+            try sidecar.connect(deviceName: deviceName, wired: wired)
         } catch {
             handleConnectFailure(target: deviceName, error: error, capturedGeneration: capturedGeneration)
             return
