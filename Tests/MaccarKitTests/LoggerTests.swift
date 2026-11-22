@@ -28,7 +28,12 @@ struct LoggerTests {
                 logger.info("Burst", "message-\(index)")
             }
 
-            #expect(logger.flush(timeout: 5.0))
+            // No `flush` here. `log()` appends to the ring buffer synchronously under the state
+            // lock, so the buffer is already final when `concurrentPerform` returns — the
+            // assertions below are about the buffer, not about the file writer. Asserting on
+            // `flush` made this test measure file-write throughput, which failed on the CI
+            // runner (2026-11-22, `flush(timeout: 5.0)` timed out) while passing locally five
+            // times out of five. A test must fail for the reason it is named after.
             let retained = logger.recentEntries()
             #expect(retained.count == 500)
 
