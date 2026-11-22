@@ -2,6 +2,17 @@
 
 All notable changes to **Maccar** are documented in this file.
 
+## [v1.5.4] - 2026-11-22
+### Added
+- **Wi-Fi Mode.** Pull the cable and the picture now stays. Enable it in the Menu Bar while the iPad is connected by cable, and Sidecar may then carry the session over Wi-Fi. Plug the cable back in and Sidecar moves it back to USB on its own — no button, no interruption. **It is off after every launch**, so Wi-Fi is opt-in for one session and never inherited from a session you cannot remember granting. Turning it off closes the session immediately.
+- **The menu shows which transport is in use** — "Connected to 'VPad' — cable" or "— Wi-Fi".
+
+### Why Wi-Fi can only be turned on while the cable is attached
+A failed Sidecar connect raises a popup, and on a headless Mac that popup appears on a screen nobody can see or touch. Allowing Wi-Fi to be switched on at any moment would mean taking that risk blind. Requiring the cable means the iPad is provably present when the choice is made. Turning Wi-Fi **off** is never restricted: that is the one moment the user needs the control most.
+
+### Note
+- Sidecar already moves a Wi-Fi session back to USB by itself, but it does **not** do the reverse — a wired session stays wired when the cable is pulled, and the iPad goes dark. That asymmetry is the whole reason this feature exists.
+
 ## [v1.5.3] - 2026-11-21
 ### Changed
 - **The "Auto-Mirroring" switch is gone.** It had two positions and only one of them worked. The virtual display is where the Mac's windows actually live — measured: every visible window was on it — and mirroring is what puts those windows on the iPad. Turning it off left the iPad as a second, empty desktop while the real windows stayed on a display nobody can see. There is no desk where that is useful: on a headless Mac the iPad is the only screen, and with a monitor attached the monitor is its own desktop while the iPad still has to show the virtual one. Mirroring is now simply what Maccar does.
